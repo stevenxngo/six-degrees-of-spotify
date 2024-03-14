@@ -11,6 +11,8 @@ class SixDegrees:
         self._genres = read_genres("data/genres.txt")
         self._artists = []
         self._artist_ids = set()
+        self._tracks = []
+        self._track_ids = set()
 
     def verify_conn(self: "SixDegrees") -> None:
         with Neo4jClient() as neo4j_client:
@@ -50,8 +52,11 @@ class SixDegrees:
             for artist in self._artists:
                 neo4j_client.create_artist_node(artist)
 
-    def import_artists(self: "SixDegrees") -> None:
+    def import_artist_ids(self: "SixDegrees") -> None:
         self._artist_ids = read_ids("data/artists/artist_ids.txt")
+
+    def import_artists(self: "SixDegrees") -> None:
+        self.import_artist_ids()
         id_list = list(self._artist_ids)
         num_ids = len(id_list)
         for i in range(0, num_ids, 50):
@@ -59,3 +64,35 @@ class SixDegrees:
             results = self._spotify.artists(chunk)
             self._artists.extend(results["artists"])
         self.create_artists()
+
+    def scrape_albums(self, artist_id):
+        discography = []
+        offset = 0
+        limit = 50
+        while True:
+            albums = self._spotify.artist_albums(
+                artist_id=artist_id,
+                album_type="album,single",
+                limit=limit,
+                offset=offset,
+            )
+            discography += albums["items"]
+            if albums["next"]:
+                offset += limit
+            else:
+                break
+        return discography
+    
+    def scrape_tracks(self, albums):
+        tracks = []
+        for album in albums:
+            album_id = album["id"]
+            tracks += self._spotify.album_tracks(album_id)["items"]
+        return tracks
+
+    def initialize_tracks(self: "SixDegrees") -> None:
+        for artist_id in self._artist_ids:
+            albums = self.scrape_albums(artist_id)
+            self._tracks += self.scrape_tracks(albums)
+        # self.filter_tracks()
+        # self.create_tracks()

@@ -24,6 +24,27 @@ class SpotifyClient:
         self: "SpotifyClient", q: str, cat: str, limit: int, offset: int
     ) -> dict:
         return self._spotify.search(q=q, type=cat, limit=limit, offset=offset)
-    
+
     def artists(self: "SpotifyClient", artists: list) -> dict:
         return self._spotify.artists(artists=artists)
+
+    def artist_albums(
+        self: "SpotifyClient",
+        artist_id: str,
+        album_type: str,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict:
+        return self._spotify.artist_albums(
+            artist_id=artist_id,
+            album_type=album_type,
+            limit=limit,
+            offset=offset,
+        )
+
+    def album_tracks(
+        self: "SpotifyClient", album_id: str, limit: int = 50, offset: int = 0
+    ):
+        return self._spotify.album_tracks(
+            album_id=album_id, limit=limit, offset=offset
+        )
