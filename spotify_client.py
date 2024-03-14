@@ -15,7 +15,15 @@ class SpotifyClient:
         auth_manager = SpotifyClientCredentials(
             client_id=client_id, client_secret=client_secret
         )
-        self.sp = spotipy.Spotify(auth_manager=auth_manager)
+        self._spotify = spotipy.Spotify(auth_manager=auth_manager)
 
     def get_artist(self: "SpotifyClient", artist_id: str) -> dict:
-        return self.sp.artist(artist_id=artist_id)
+        return self._spotify.artist(artist_id=artist_id)
+
+    def search(
+        self: "SpotifyClient", q: str, cat: str, limit: int, offset: int
+    ) -> dict:
+        return self._spotify.search(q=q, type=cat, limit=limit, offset=offset)
+    
+    def artists(self: "SpotifyClient", artists: list) -> dict:
+        return self._spotify.artists(artists=artists)

@@ -23,3 +23,20 @@ class Neo4jClient:
 
     def verify_conn(self: "Neo4jClient") -> None:
         self.driver.verify_connectivity()
+
+    def create_artist_node(self: "Neo4jClient", artist: dict) -> None:
+        with self.driver.session() as session:
+            constraint = (
+                "CREATE CONSTRAINT unique_artist_id IF NOT EXISTS "
+                "FOR (n: Artist) REQUIRE n.id IS UNIQUE"
+            )
+            session.run(constraint)
+
+            node_query = "MERGE (n:Artist {name: $name, id: $id, uri: $uri})"
+
+            session.run(
+                node_query,
+                name=artist["name"],
+                id=artist["id"],
+                uri=artist["uri"],
+            )
