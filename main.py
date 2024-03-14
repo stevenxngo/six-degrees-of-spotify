@@ -1,10 +1,8 @@
-from spotify import SpotifyClient
+from six_degrees import SixDegrees
 
-def main():
-    spotify_client = SpotifyClient()
-    artist = spotify_client.get_artist("6HvZYsbFfjnjFrWF950C9d")
-    print(artist)
-
+def main() -> None:
+    six_degrees = SixDegrees()
+    six_degrees.verify_conn()
 
 if __name__ == "__main__":
     main()
