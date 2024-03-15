@@ -1,5 +1,3 @@
-alternative
-chill
 dance
 dubstep
 edm
@@ -11,6 +9,5 @@ indie
 indie-pop
 k-pop
 pop
-post-dubstep
 progressive-house
 r-n-b
