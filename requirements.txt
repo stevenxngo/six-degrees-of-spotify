@@ -2,6 +2,7 @@ async-timeout==4.0.3
 certifi==2024.2.2
 charset-normalizer==3.3.2
 idna==3.6
+logging==0.4.9.6
 neo4j==5.18.0
 python-dotenv==1.0.1
 pytz==2024.1

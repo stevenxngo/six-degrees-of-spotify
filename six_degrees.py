@@ -7,6 +7,9 @@ from file_utilities import (
     read_ids,
     clear_files,
 )
+import logging
+
+logger = logging.getLogger()
 
 
 class SixDegrees:
@@ -127,6 +130,9 @@ class SixDegrees:
         offset = 0
         limit = 50
         while True:
+            logger.info(
+                "Scraping albums %s/%s", offset + 1, len(self._artist_ids)
+            )
             albums = self._spotify.artist_albums(
                 artist_id=artist_id,
                 album_type="album,single",
@@ -165,7 +171,8 @@ class SixDegrees:
         """
         collabs = set()
         filtered_tracks = []
-        for track in self._tracks:
+        for i, track in enumerate(self._tracks):
+            logger.info("Filtering tracks %s/%s", i + 1, len(self._tracks))
             track_id = track["id"]
             included_artists = [
                 artist
@@ -209,8 +216,14 @@ class SixDegrees:
         """
         clear_files("data/tracks")
         self.import_artist_ids()
-        for artist_id in self._artist_ids:
+        for i, artist_id in enumerate(self._artist_ids):
+            logger.info(
+                "Scraping albums for artist %s/%s", i + 1, len(self._artist_ids)
+            )
             albums = self.scrape_albums(artist_id)
+            logger.info(
+                "Scraping tracks for artist %s/%s", i + 1, len(self._artist_ids)
+            )
             self._tracks += self.scrape_tracks(albums)
         self.filter_tracks()
         self.create_tracks()
