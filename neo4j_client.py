@@ -125,7 +125,7 @@ class Neo4jClient:
             )
 
     def create_relationships(self: "Neo4jClient") -> None:
-        """Creates relationships between artists and tracks in the Neo4j 
+        """Creates relationships between artists and tracks in the Neo4j
         database
 
         Args:
@@ -138,3 +138,33 @@ class Neo4jClient:
                 "MERGE (a)-[:APPEARS_ON]->(t)"
             )
             session.run(relationship_query)
+
+    def shortest_path(self: "Neo4jClient", start_id: str, end_id: str) -> list:
+        """Finds the shortest path between two artists, if it exists
+
+        Args:
+            self (Neo4jClient): Instance of Neo4jClient
+            start_id (str): id of the starting artist
+            end_id (str): id of the ending artist
+
+        Returns:
+            list: The shortest path between the two artists
+        """
+        with self.driver.session() as session:
+            path_query = (
+                "MATCH (start:Artist {id: $start_id}), (end:Artist {id: $end_id}), "
+                "p = shortestPath((start)-[:APPEARS_ON*]-(end)) "
+                "UNWIND nodes(p) AS node "
+                "RETURN node.id, node.name"
+            )
+            result = session.run(path_query, start_id=start_id, end_id=end_id)
+            path = []
+
+            if result.peek() is None:
+                print("No path found")
+                return path
+            print("Path found")
+            for record in result:
+                node_id = record["node.id"]
+                path.append(node_id)
+            return path
