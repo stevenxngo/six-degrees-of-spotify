@@ -27,17 +27,17 @@ class Neo4jClient:
     """Neo4j class to handle neo4j database requests"""
 
     def __init__(self: "Neo4jClient") -> None:
-        self.driver = None
+        self._driver = None
 
     def __enter__(self):
         uri = os.getenv("NEO4J_URI")
         username = os.getenv("NEO4J_USERNAME")
         password = os.getenv("NEO4J_PASSWORD")
-        self.driver = GraphDatabase.driver(uri, auth=(username, password))
+        self._driver = GraphDatabase.driver(uri, auth=(username, password))
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.driver.close()
+        self._driver.close()
 
     def clear_graph(self: "Neo4jClient") -> None:
         """Clears the Neo4j database
@@ -45,7 +45,7 @@ class Neo4jClient:
         Args:
             self (Neo4jClient): Instance of Neo4jClient
         """
-        with self.driver.session() as session:
+        with self._driver.session() as session:
             delete_query = "MATCH (n) DETACH DELETE n"
             session.run(delete_query)
 
@@ -55,7 +55,7 @@ class Neo4jClient:
         Args:
             self (Neo4jClient): Instance of Neo4jClient
         """
-        with self.driver.session() as session:
+        with self._driver.session() as session:
             delete_query = "MATCH (n: Artist) DETACH DELETE n"
             session.run(delete_query)
 
@@ -65,7 +65,7 @@ class Neo4jClient:
         Args:
             self (Neo4jClient): Instance of Neo4jClient
         """
-        with self.driver.session() as session:
+        with self._driver.session() as session:
             delete_query = "MATCH (n: Track) DETACH DELETE n"
             session.run(delete_query)
 
@@ -75,7 +75,7 @@ class Neo4jClient:
         Args:
             self (Neo4jClient): Instance of Neo4jClient
         """
-        self.driver.verify_connectivity()
+        self._driver.verify_connectivity()
 
     def create_artist_node(self: "Neo4jClient", artist: dict) -> None:
         """Creates an artist node in the Neo4j database
@@ -84,7 +84,7 @@ class Neo4jClient:
             self (Neo4jClient): Instance of Neo4jClient
             artist (dict): The artist information
         """
-        with self.driver.session() as session:
+        with self._driver.session() as session:
             constraint = (
                 "CREATE CONSTRAINT unique_artist_id IF NOT EXISTS "
                 "FOR (n: Artist) REQUIRE n.id IS UNIQUE"
@@ -107,7 +107,7 @@ class Neo4jClient:
             self (Neo4jClient): Instance of Neo4jClient
             track (dict): The track information
         """
-        with self.driver.session() as session:
+        with self._driver.session() as session:
             unique_track_constraint = (
                 "CREATE CONSTRAINT unique_track_id IF NOT EXISTS "
                 "FOR (n: Track) REQUIRE n.id IS UNIQUE"
@@ -131,7 +131,7 @@ class Neo4jClient:
         Args:
             self (Neo4jClient): Instance of Neo4jClient
         """
-        with self.driver.session() as session:
+        with self._driver.session() as session:
             relationship_query = (
                 "MATCH (a: Artist), (t: Track) "
                 "WHERE a.id IN t.artists "
@@ -150,7 +150,7 @@ class Neo4jClient:
         Returns:
             list: The shortest path between the two artists
         """
-        with self.driver.session() as session:
+        with self._driver.session() as session:
             path_query = (
                 "MATCH (start:Artist {id: $start_id}), (end:Artist {id: $end_id}), "
                 "p = shortestPath((start)-[:APPEARS_ON*]-(end)) "

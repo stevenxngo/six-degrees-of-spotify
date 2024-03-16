@@ -279,3 +279,23 @@ class SixDegrees:
         self.import_artists()
         self.import_tracks()
         self.create_relationships()
+
+    def find_path(self: "SixDegrees", start: str, end: str) -> list:
+        """Finds the shortest path between two artists
+
+        Args:
+            self (SpotifyClient): Instance of SpotifyClient
+            start (str): Starting artist name
+            end (str): Ending artist name
+
+        Returns:
+            list: The shortest path between two artists
+        """
+        starting_id = self._spotify.search(
+            q=start, cat="artist", limit=1, offset=0
+        )["artists"]["items"][0]["id"]
+        ending_id = self._spotify.search(
+            q=end, cat="artist", limit=1, offset=0
+        )["artists"]["items"][0]["id"]
+        with Neo4jClient() as neo4j_manager:
+            return neo4j_manager.shortest_path(starting_id, ending_id)

@@ -72,7 +72,7 @@ class SpotifyClient:
             self (SpotifyClient): Instance of SpotifyClient
             artist_id (str): The artist id
             album_type (str): The type of album
-            limit (int, optional): The number of albums to return. Defaults 
+            limit (int, optional): The number of albums to return. Defaults
             to 20.
             offset (int, optional): The offset for albums. Defaults to 0.
 
@@ -94,7 +94,7 @@ class SpotifyClient:
         Args:
             self (SpotifyClient): Instance of SpotifyClient
             album_id (str): The album id
-            limit (int, optional): The number of tracks to return. Defaults 
+            limit (int, optional): The number of tracks to return. Defaults
             to 50.
             offset (int, optional): The offset for tracks. Defaults to 0.
 
@@ -104,7 +104,7 @@ class SpotifyClient:
         return self._spotify.album_tracks(
             album_id=album_id, limit=limit, offset=offset
         )
-    
+
     def tracks(self: "SpotifyClient", tracks: list) -> Any:
         """Gets tracks for a given list of tracks
 
