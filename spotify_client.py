@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from typing import Any
 from spotipy.oauth2 import SpotifyClientCredentials
 import spotipy
 
@@ -17,7 +18,7 @@ class SpotifyClient:
         )
         self._spotify = spotipy.Spotify(auth_manager=auth_manager)
 
-    def get_artist(self: "SpotifyClient", artist_id: str) -> dict:
+    def get_artist(self: "SpotifyClient", artist_id: str) -> Any:
         """Gets artist information from Spotify API
 
         Args:
@@ -31,7 +32,7 @@ class SpotifyClient:
 
     def search(
         self: "SpotifyClient", q: str, cat: str, limit: int, offset: int
-    ) -> dict:
+    ) -> Any:
         """Searches Spotify API for artists, albums, or tracks
 
         Args:
@@ -46,7 +47,7 @@ class SpotifyClient:
         """
         return self._spotify.search(q=q, type=cat, limit=limit, offset=offset)
 
-    def artists(self: "SpotifyClient", artists: list) -> dict:
+    def artists(self: "SpotifyClient", artists: list) -> Any:
         """Gets artist information from Spotify API
 
         Args:
@@ -64,7 +65,7 @@ class SpotifyClient:
         album_type: str,
         limit: int = 20,
         offset: int = 0,
-    ) -> dict:
+    ) -> Any:
         """Gets albums for a given artist
 
         Args:
@@ -87,7 +88,7 @@ class SpotifyClient:
 
     def album_tracks(
         self: "SpotifyClient", album_id: str, limit: int = 50, offset: int = 0
-    ) -> dict:
+    ) -> Any:
         """Gets tracks for a given album
 
         Args:
@@ -104,7 +105,7 @@ class SpotifyClient:
             album_id=album_id, limit=limit, offset=offset
         )
     
-    def tracks(self: "SpotifyClient", tracks: list) -> dict:
+    def tracks(self: "SpotifyClient", tracks: list) -> Any:
         """Gets tracks for a given list of tracks
 
         Args:
