@@ -130,9 +130,7 @@ class SixDegrees:
         offset = 0
         limit = 50
         while True:
-            logger.info(
-                "Scraping albums %s/%s", offset + 1, len(self._artist_ids)
-            )
+            logger.info("Scraping albums")
             albums = self._spotify.artist_albums(
                 artist_id=artist_id,
                 album_type="album,single",
