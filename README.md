@@ -1,4 +1,6 @@
-# Six Degrees of Spotify
+# Six Degrees of Spotify (WIP)
+
+Note: This project is a work in progress and is not yet complete.
 
 ## Description
 
