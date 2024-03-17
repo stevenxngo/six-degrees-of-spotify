@@ -47,9 +47,12 @@ class SixDegrees:
             self (SixDegrees): Instance of SixDegrees
         """
         limit = 50
-        for genre in self._genres:
+        for i, genre in enumerate(self._genres):
             offset = 0
-            for _ in range(1):
+            logger.info(
+                "Scraping artists for genre %s/%s", i + 1, len(self._genres)
+            )
+            for _ in range(5):
                 query = f"genre:{str(genre)}"
                 results = self._spotify.search(
                     q=query, cat="artist", limit=limit, offset=offset
@@ -71,8 +74,7 @@ class SixDegrees:
         for artist in self._artists:
             artist_id = artist["id"]
             if (
-                # artist["id"] not in self._artist_ids
-                any(a.get("id") != artist_id for a in self._artists)
+                artist_id not in [a["id"] for a in final_artists]
                 and artist["popularity"] >= 40
             ):
                 final_artists.append({"name": artist["name"], "id": artist_id})
@@ -99,7 +101,7 @@ class SixDegrees:
         clear_file("data/artists.csv")
         self.scrape_artists()
         self.filter_artists()
-        # self.create_artists()
+        self.create_artists()
 
     def import_artists(self: "SixDegrees") -> None:
         """Imports artists from the id file

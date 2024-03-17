@@ -20,10 +20,10 @@ def main(args: argparse.ArgumentParser) -> None:
         else:
             print("Database not cleared.")
     else:
-        six_degrees.import_artists()
-        six_degrees.import_tracks()
+        six_degrees.initialize_artists()
+        # six_degrees.import_tracks()
         # six_degrees.initialize_tracks()
-        six_degrees.create_relationships()
+        # six_degrees.create_relationships()
         # start = input("Starting artist name: ")
         # end = input("Ending artist name: ")
         # six_degrees.find_path(start, end)
