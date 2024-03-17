@@ -91,13 +91,12 @@ class Neo4jClient:
             )
             session.run(constraint)
 
-            node_query = "MERGE (n:Artist {name: $name, id: $id, uri: $uri})"
+            node_query = "MERGE (n:Artist {name: $name, id: $id})"
 
             session.run(
                 node_query,
                 name=artist["name"],
                 id=artist["id"],
-                uri=artist["uri"],
             )
 
     def create_track_node(self: "Neo4jClient", track: dict) -> None:
@@ -114,13 +113,12 @@ class Neo4jClient:
             )
             session.run(unique_track_constraint)
 
-            node_query = "MERGE (n:Track {name: $name, id: $id, uri: $uri, artists: $artists})"
+            node_query = "MERGE (n:Track {name: $name, id: $id, artists: $artists})"
             artists = [artist["id"] for artist in track["artists"]]
             session.run(
                 node_query,
                 name=track["name"],
                 id=track["id"],
-                uri=track["uri"],
                 artists=artists,
             )
 

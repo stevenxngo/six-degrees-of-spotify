@@ -1,39 +1,40 @@
 import os
+import csv
 
 
-def clear_files(path: str) -> None:
+def clear_file(path: str) -> None:
     """Clears the files in a directory
 
     Args:
         path (str): The path to the directory
     """
-    for filename in os.listdir(path):
-        file_path = os.path.join(path, filename)
-        if os.path.isfile(file_path):
-            with open(file_path, "w", encoding="utf-8") as file:
-                file.truncate()
+    if os.path.isfile(path):
+        with open(path, "w", encoding="utf-8") as _:
+            pass
 
 
-def write_name_id(path: str, item: dict) -> None:
-    """Writes the artist name and id to a file
+def write_csv_header(path: str, header: list[str]) -> None:
+    """Writes a header to a CSV file
 
     Args:
         path (str): The path to the file
-        item (dict): The artist information
+        header (list[str]): The header to write
     """
-    with open(path, "a", encoding="utf-8") as file:
-        file.write(item["name"] + " | " + item["id"] + "\n")
+    with open(path, "a", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=header)
+        writer.writeheader()
 
 
-def write_to_file(path: str, val: str) -> None:
-    """Writes a value to a file
+def write_csv(path: str, data: list[dict], headers: list[str]) -> None:
+    """Writes data to a CSV file
 
     Args:
         path (str): The path to the file
-        val (str): The value to write
+        data (list[dict]): The data to write
     """
-    with open(path, "a", encoding="utf-8") as file:
-        file.write(val + "\n")
+    with open(path, "a", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=headers)
+        writer.writerows(data)
 
 
 def read_genres(path: str) -> list[str]:
