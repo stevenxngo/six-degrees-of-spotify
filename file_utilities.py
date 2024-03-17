@@ -1,3 +1,4 @@
+import ast
 import os
 import csv
 
@@ -53,24 +54,8 @@ def read_genres(path: str) -> list[str]:
     return genres
 
 
-def read_ids(path: str) -> set[str]:
-    """Reads ids from a file
-
-    Args:
-        path (str): The path to the file
-
-    Returns:
-        set[str]: The ids
-    """
-    ids = set()
-    with open(path, "r", encoding="utf-8") as file:
-        for line in file:
-            ids.add(line.strip())
-    return ids
-
-
-def read_csv(path: str) -> list[dict]:
-    """Reads data from a CSV file
+def read_artist_csv(path: str) -> list[dict]:
+    """Reads artist data from a CSV file
 
     Args:
         path (str): The path to the file
@@ -82,6 +67,25 @@ def read_csv(path: str) -> list[dict]:
     with open(path, "r", encoding="utf-8", newline="") as file:
         reader = csv.DictReader(file)
         for row in reader:
-        # Append a dictionary representing each row to the 'data' list
-            data.append({'name': row['name'], 'id': row['id']})
+            data.append({"name": row["name"], "id": row["id"]})
+    return data
+
+
+def read_track_csv(path: str) -> list[dict]:
+    """Reads track data from a CSV file
+
+    Args:
+        path (str): The path to the file
+
+    Returns:
+        list[dict]: The data
+    """
+    data = []
+    with open(path, "r", encoding="utf-8", newline="") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            artists = ast.literal_eval(row["artists"])
+            data.append(
+                {"name": row["name"], "id": row["id"], "artists": artists}
+            )
     return data

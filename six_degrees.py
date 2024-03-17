@@ -2,8 +2,8 @@ from spotify_client import SpotifyClient
 from neo4j_client import Neo4jClient, clear_db_artists, clear_db_tracks
 from file_utilities import (
     read_genres,
-    read_ids,
-    read_csv,
+    read_artist_csv,
+    read_track_csv,
     write_csv_header,
     write_csv,
     clear_file,
@@ -21,6 +21,7 @@ TRACK_HEADERS = [
     "artists",
 ]
 
+
 class SixDegrees:
     """Class to handle functionality between Neo4j and Spotify APIs"""
 
@@ -28,9 +29,7 @@ class SixDegrees:
         self._spotify = SpotifyClient()
         self._genres = read_genres("data/genres.txt")
         self._artists = []
-        self._artist_ids = set()
         self._tracks = []
-        self._track_ids = set()
 
     def verify_conn(self: "SixDegrees") -> None:
         """Verifies connection to Neo4j database
@@ -50,7 +49,7 @@ class SixDegrees:
         limit = 50
         for genre in self._genres:
             offset = 0
-            for _ in range(5):
+            for _ in range(1):
                 query = f"genre:{str(genre)}"
                 results = self._spotify.search(
                     q=query, cat="artist", limit=limit, offset=offset
@@ -72,11 +71,11 @@ class SixDegrees:
         for artist in self._artists:
             artist_id = artist["id"]
             if (
-                artist["id"] not in self._artist_ids
+                # artist["id"] not in self._artist_ids
+                any(a.get("id") != artist_id for a in self._artists)
                 and artist["popularity"] >= 40
             ):
                 final_artists.append({"name": artist["name"], "id": artist_id})
-                self._artist_ids.add(artist_id)
         self._artists = final_artists
         write_csv("data/artists.csv", self._artists, ARTIST_HEADERS)
 
@@ -102,23 +101,13 @@ class SixDegrees:
         self.filter_artists()
         # self.create_artists()
 
-    def import_artist_ids(self: "SixDegrees") -> None:
-        """Imports artist ids from file
-
-        Args:
-            self (SixDegrees): Instance of SixDegrees
-        """
-        # TODO: read from artists.csv
-        self._artist_ids = read_ids("data/artists/artist_ids.txt")
-
     def import_artists(self: "SixDegrees") -> None:
         """Imports artists from the id file
 
         Args:
             self (SixDegrees): Instance of SixDegrees
         """
-        self._artists = read_csv("data/artists.csv")
-        logger.info(self._artists)
+        self._artists = read_artist_csv("data/artists.csv")
         self.create_artists()
 
     def scrape_albums(self: "SixDegrees", artist_id: str) -> list:
@@ -172,15 +161,16 @@ class SixDegrees:
         Args:
             self (SixDegrees): Instance of SixDegrees
         """
+        write_csv_header("data/tracks.csv", TRACK_HEADERS)
         collabs = set()
         filtered_tracks = []
         for i, track in enumerate(self._tracks):
             logger.info("Filtering tracks %s/%s", i + 1, len(self._tracks))
             track_id = track["id"]
             included_artists = [
-                artist
+                {"name": artist["name"], "id": artist["id"]}
                 for artist in track["artists"]
-                if artist["id"] in self._artist_ids
+                if any(a.get("id") == artist["id"] for a in self._artists)
             ]
             if len(included_artists) == 0 or len(included_artists) == 1:
                 continue
@@ -189,15 +179,21 @@ class SixDegrees:
                 for artist_j in included_artists[i + 1 :]:
                     conn = tuple(sorted([artist_i["id"], artist_j["id"]]))
                     track_conns.add(conn)
-            if (
-                len(track_conns.intersection(collabs)) == 0
-                and track_id not in self._track_ids
+            if len(track_conns.intersection(collabs)) == 0 and all(
+                track_id != t["id"] for t in filtered_tracks
             ):
                 collabs.update(track_conns)
-                filtered_tracks.append(track)
-                self._track_ids.add(track["id"])
-                # TODO: write to tracks.csv
+                filtered_tracks.append(
+                    {
+                        "name": track["name"],
+                        "id": track_id,
+                        "artists": [
+                            artist["id"] for artist in included_artists
+                        ],
+                    }
+                )
         self._tracks = filtered_tracks
+        write_csv("data/tracks.csv", self._tracks, TRACK_HEADERS)
 
     def create_tracks(self: "SixDegrees") -> None:
         """Creates track nodes in Neo4j database
@@ -217,27 +213,18 @@ class SixDegrees:
             self (SixDegrees): Instance of SixDegrees
         """
         clear_file("data/tracks.csv")
-        self.import_artist_ids()
-        for i, artist_id in enumerate(self._artist_ids):
+        self._artists = read_artist_csv("data/artists.csv")
+        for i, artist in enumerate(self._artists):
             logger.info(
-                "Scraping albums for artist %s/%s", i + 1, len(self._artist_ids)
+                "Scraping albums for artist %s/%s", i + 1, len(self._artists)
             )
-            albums = self.scrape_albums(artist_id)
+            albums = self.scrape_albums(artist["id"])
             logger.info(
-                "Scraping tracks for artist %s/%s", i + 1, len(self._artist_ids)
+                "Scraping tracks for artist %s/%s", i + 1, len(self._artists)
             )
             self._tracks += self.scrape_tracks(albums)
         self.filter_tracks()
         self.create_tracks()
-
-    def import_track_ids(self: "SixDegrees") -> None:
-        """Imports track ids from file
-
-        Args:
-            self (SixDegrees): Instance of SixDegrees
-        """
-        # TODO: read from tracks.csv
-        self._track_ids = read_ids("data/tracks/track_ids.txt")
 
     def import_tracks(self: "SixDegrees") -> None:
         """Imports tracks from the id file
@@ -245,13 +232,7 @@ class SixDegrees:
         Args:
             self (SixDegrees): Instance of SixDegrees
         """
-        self.import_track_ids()
-        id_list = list(self._track_ids)
-        num_ids = len(id_list)
-        for i in range(0, num_ids, 50):
-            chunk = id_list[i : i + 50] if i + 50 <= num_ids else id_list[i:]
-            results = self._spotify.tracks(chunk)
-            self._tracks.extend(results["tracks"])
+        self._tracks = read_track_csv("data/tracks.csv")
         self.create_tracks()
 
     def create_relationships(self: "SixDegrees") -> None:

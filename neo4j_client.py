@@ -114,12 +114,11 @@ class Neo4jClient:
             session.run(unique_track_constraint)
 
             node_query = "MERGE (n:Track {name: $name, id: $id, artists: $artists})"
-            artists = [artist["id"] for artist in track["artists"]]
             session.run(
                 node_query,
                 name=track["name"],
                 id=track["id"],
-                artists=artists,
+                artists=track["artists"],
             )
 
     def create_relationships(self: "Neo4jClient") -> None:
