@@ -68,7 +68,6 @@ class SixDegrees:
                 final_artists.append(artist)
                 self._artist_ids.add(artist_id)
                 write_name_id("data/artists/artists.txt", artist)
-                write_to_file("data/artists/artist_ids.txt", artist_id)
         self._artists = final_artists
 
     def create_artists(self: "SixDegrees") -> None:
@@ -88,7 +87,7 @@ class SixDegrees:
         Args:
             self (SixDegrees): Instance of SixDegrees
         """
-        clear_files("data/artists")
+        clear_files("data/artists.csv")
         self.scrape_artists()
         self.filter_artists()
         self.create_artists()
@@ -212,7 +211,7 @@ class SixDegrees:
         Args:
             self (SixDegrees): Instance of SixDegrees
         """
-        clear_files("data/tracks")
+        clear_files("data/tracks.csv")
         self.import_artist_ids()
         for i, artist_id in enumerate(self._artist_ids):
             logger.info(
@@ -299,3 +298,12 @@ class SixDegrees:
         )["artists"]["items"][0]["id"]
         with Neo4jClient() as neo4j_manager:
             return neo4j_manager.shortest_path(starting_id, ending_id)
+
+    def clear_db(self: "SixDegrees") -> None:
+        """Clears the Neo4j database
+
+        Args:
+            self (SixDegrees): Instance of SixDegrees
+        """
+        clear_db_artists()
+        clear_db_tracks()
