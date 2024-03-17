@@ -26,6 +26,14 @@ This project is an application that enables users to find the shortest path betw
 * [Neo4j Account](https://neo4j.com/cloud/platform/aura-graph-database/?ref=nav-get-started-cta)
 * [Spotify Developer Account](https://developer.spotify.com/)
 
+## Database Initialization
+
+There are two ways to initialize the database:
+
+1. Run the `main.py` with the `--init` flag to initialize the database using Spotify's API. This will take a long time to run, as it will need to make a large number of requests to Spotify's API to retrieve the data. This is the recommended method if you want the most up-to-date data.
+
+2. Run the `main.py` with the `--imprt` flag to initialize the database using a pre-existing csv file. This will be much faster than the first method, but the data will not be as up-to-date. This is the recommended method if you want to test the application without waiting for all the data to be retrieved.
+
 ## Installation
 
 1. Clone the repository
