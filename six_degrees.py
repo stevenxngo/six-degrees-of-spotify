@@ -27,7 +27,7 @@ class SixDegrees:
 
     def __init__(self: "SixDegrees") -> None:
         self._spotify = SpotifyClient()
-        self._genres = read_genres("data/genres.txt")
+        self._genres = read_genres("data/genres.json")
         self._artists = []
         self._tracks = []
 

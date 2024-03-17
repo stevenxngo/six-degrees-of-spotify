@@ -20,9 +20,9 @@ def main(args: argparse.ArgumentParser) -> None:
         else:
             print("Database not cleared.")
     else:
-        six_degrees.initialize_artists()
+        # six_degrees.initialize_artists()
         # six_degrees.import_tracks()
-        # six_degrees.initialize_tracks()
+        six_degrees.initialize_tracks()
         # six_degrees.create_relationships()
         # start = input("Starting artist name: ")
         # end = input("Ending artist name: ")
@@ -41,7 +41,7 @@ if __name__ == "__main__":
         "-m",
         "--imprt",
         action="store_true",
-        help="Flag to specify import from .txt files",
+        help="Flag to specify import from .csv files",
     )
     parser.add_argument(
         "-d",

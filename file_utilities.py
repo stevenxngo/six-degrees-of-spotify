@@ -1,6 +1,7 @@
 import ast
 import os
 import csv
+import json
 
 
 def clear_file(path: str) -> None:
@@ -47,10 +48,8 @@ def read_genres(path: str) -> list[str]:
     Returns:
         list[str]: The genres
     """
-    genres = []
     with open(path, "r", encoding="utf-8") as file:
-        for line in file:
-            genres.append(line.strip())
+        genres = json.load(file)
     return genres
 
 
