@@ -60,6 +60,13 @@ NEO4J_PASSWORD=<your_neo4j_password>
 
 If you want to initialize the database with genres other than the ones listed above, you can modify the `genres` list in the `main.py` file. A list of all available genres can be found [here](/data/all_genres.json).
 
+## Flags
+
+* `-i` or `--init`: Initialize the database using Spotify's API
+* `-m` or `--imprt`: Initialize the database using the pre-existing csv files
+* `d` or `--debug`: Enable debug mode (not yet implemented). Currently verifies that connection to the database is successful
+* `-c` or `--clear`: Clear the database. **Warning**: This action is irreversible
+
 ## Common Issues
 
 If initializing the database is taking too long using the first method, you may be encountering [Spotify's rate limits](https://developer.spotify.com/documentation/web-api/concepts/rate-limits). Please wait a few minutes/hours and try again. Otherwise, you can use the second method to initialize the database using the pre-existing csv files.
