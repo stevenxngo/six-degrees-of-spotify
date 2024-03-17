@@ -3,6 +3,7 @@ from neo4j_client import Neo4jClient, clear_db_artists, clear_db_tracks
 from file_utilities import (
     read_genres,
     read_ids,
+    read_csv,
     write_csv_header,
     write_csv,
     clear_file,
@@ -116,13 +117,8 @@ class SixDegrees:
         Args:
             self (SixDegrees): Instance of SixDegrees
         """
-        self.import_artist_ids()
-        id_list = list(self._artist_ids)
-        num_ids = len(id_list)
-        for i in range(0, num_ids, 50):
-            chunk = id_list[i : i + 50] if i + 50 <= num_ids else id_list[i:]
-            results = self._spotify.artists(chunk)
-            self._artists.extend(results["artists"])
+        self._artists = read_csv("data/artists.csv")
+        logger.info(self._artists)
         self.create_artists()
 
     def scrape_albums(self: "SixDegrees", artist_id: str) -> list:

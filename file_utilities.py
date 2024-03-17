@@ -67,3 +67,21 @@ def read_ids(path: str) -> set[str]:
         for line in file:
             ids.add(line.strip())
     return ids
+
+
+def read_csv(path: str) -> list[dict]:
+    """Reads data from a CSV file
+
+    Args:
+        path (str): The path to the file
+
+    Returns:
+        list[dict]: The data
+    """
+    data = []
+    with open(path, "r", encoding="utf-8", newline="") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+        # Append a dictionary representing each row to the 'data' list
+            data.append({'name': row['name'], 'id': row['id']})
+    return data

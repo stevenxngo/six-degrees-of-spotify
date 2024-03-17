@@ -20,7 +20,7 @@ def main(args: argparse.ArgumentParser) -> None:
         else:
             print("Database not cleared.")
     else:
-        six_degrees.initialize_artists()
+        six_degrees.import_artists()
         # six_degrees.initialize_tracks()
         # six_degrees.create_relationships()
         # start = input("Starting artist name: ")
