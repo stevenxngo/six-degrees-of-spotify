@@ -3,14 +3,26 @@ from logging_config import configure_logger
 import argparse
 
 
-def main(args: argparse.ArgumentParser) -> None:
+def main(args: argparse.Namespace) -> None:
     configure_logger()
     six_degrees = SixDegrees()
     six_degrees.verify_conn()
     if args.init:
-        six_degrees.initialize_data()
+        sure = input(
+            "Are you sure you want to initialize the database? Warning: this will override the csv files and database (y/n): "
+        )
+        if sure.lower() == "y":
+            six_degrees.initialize_data()
+        else:
+            print("Database not initialized.")
     elif args.imprt:
-        six_degrees.import_data()
+        sure = input(
+            "Are you sure you want to import the database via csv files? Warning: this will override the current database (y/n): "
+        )
+        if sure.lower() == "y":
+            six_degrees.import_tracks()
+        else:
+            print("Database not imported.")
     elif args.debug:
         six_degrees.verify_conn()
     elif args.clear:
