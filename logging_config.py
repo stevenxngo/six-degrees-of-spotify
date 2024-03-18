@@ -1,7 +1,7 @@
 import logging
 
 
-def configure_logger():
+def configure_logger() -> None:
     """Configures the logger to log to the console.
     """
     logging.basicConfig(
