@@ -157,7 +157,7 @@ class Neo4jClient:
             end_id (str): id of the ending artist
 
         Returns:
-            list: The shortest path between the two artists
+            list: The shortest path between the two artists, if any
         """
         if self._driver is not None:
             with self._driver.session() as session:

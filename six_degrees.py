@@ -151,9 +151,13 @@ class SixDegrees:
             list: List of tracks
         """
         tracks = []
-        for album in albums:
-            album_id = album["id"]
-            tracks += self._spotify.album_tracks(album_id)["items"]
+        for i in range(0, len(albums), 20):
+            logger.info("Scraping tracks %s/%s", i, len(albums))
+            album_ids = [album["id"] for album in albums[i : i + 20]]
+            tracks += [
+                album["tracks"]["items"]
+                for album in self._spotify.albums(albums=album_ids)["albums"]
+            ]
         return tracks
 
     def filter_tracks(self: "SixDegrees") -> None:

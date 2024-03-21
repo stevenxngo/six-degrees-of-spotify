@@ -105,14 +105,14 @@ class SpotifyClient:
             album_id=album_id, limit=limit, offset=offset
         )
 
-    def tracks(self: "SpotifyClient", tracks: list) -> Any:
-        """Gets tracks for a given list of tracks
+    def albums(self: "SpotifyClient", albums: list) -> Any:
+        """Gets album information from Spotify API
 
         Args:
             self (SpotifyClient): Instance of SpotifyClient
-            tracks (list): The track ids
+            albums (list): The album ids
 
         Returns:
-            dict: The tracks
+            dict: Album information
         """
-        return self._spotify.tracks(tracks=tracks)
+        return self._spotify.albums(albums=albums)
