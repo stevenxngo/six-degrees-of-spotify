@@ -158,6 +158,7 @@ class SixDegrees:
                 album["tracks"]["items"]
                 for album in self._spotify.albums(albums=album_ids)["albums"]
             ]
+        tracks = [track for album in tracks for track in album]
         return tracks
 
     def filter_tracks(self: "SixDegrees") -> None:
