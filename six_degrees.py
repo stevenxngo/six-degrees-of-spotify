@@ -15,6 +15,9 @@ ARTIST_HEADERS = [
     "name",
     "id",
 ]
+ALBUM_HEADERS = [
+    "id",
+]
 TRACK_HEADERS = [
     "name",
     "id",
@@ -29,6 +32,7 @@ class SixDegrees:
         self._spotify = SpotifyClient()
         self._genres = read_genres("data/genres.json")
         self._artists = []
+        self._albums = []
         self._tracks = []
 
     def verify_conn(self: "SixDegrees") -> None:
@@ -140,26 +144,22 @@ class SixDegrees:
                 break
         return discography
 
-    def scrape_tracks(self: "SixDegrees", albums: list) -> list:
+    def scrape_tracks(self: "SixDegrees") -> None:
         """Scrapes tracks for a given list of albums
 
         Args:
             self (SixDegrees): Instance of SixDegrees
-            albums (list): List of albums
-
-        Returns:
-            list: List of tracks
         """
         tracks = []
-        for i in range(0, len(albums), 20):
-            logger.info("Scraping tracks %s/%s", i, len(albums))
-            album_ids = [album["id"] for album in albums[i : i + 20]]
+        for i in range(0, len(self._albums), 20):
+            logger.info("Scraping tracks %s/%s", i, len(self._albums))
+            album_ids = [album["id"] for album in self._albums[i : i + 20]]
             tracks += [
                 album["tracks"]["items"]
                 for album in self._spotify.albums(albums=album_ids)["albums"]
             ]
         tracks = [track for album in tracks for track in album]
-        return tracks
+        self._tracks += tracks
 
     def filter_tracks(self: "SixDegrees") -> None:
         """Filters tracks based on artist collaborations. Only one
@@ -226,10 +226,8 @@ class SixDegrees:
                 "Scraping albums for artist %s/%s", i + 1, len(self._artists)
             )
             albums = self.scrape_albums(artist["id"])
-            logger.info(
-                "Scraping tracks for artist %s/%s", i + 1, len(self._artists)
-            )
-            self._tracks += self.scrape_tracks(albums)
+            self._albums += albums
+        self.scrape_tracks()
         self.filter_tracks()
         self.create_tracks()
 
