@@ -6,7 +6,7 @@ import argparse
 def main(args: argparse.Namespace) -> None:
     configure_logger()
     six_degrees = SixDegrees()
-    six_degrees.verify_conn()
+    # six_degrees.verify_conn()
     if args.init:
         sure = input(
             "Are you sure you want to initialize the database? Warning: this will override the csv files and database (y/n): "

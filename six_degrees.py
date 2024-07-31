@@ -45,7 +45,7 @@ class SixDegrees:
             neo4j_client.verify_conn()
 
     def scrape_artists(self: "SixDegrees") -> None:
-        """Scrapes the top 250 artists for each genre
+        """Scrapes the top 50 artists for each genre
 
         Args:
             self (SixDegrees): Instance of SixDegrees
@@ -56,7 +56,7 @@ class SixDegrees:
             logger.info(
                 "Scraping artists for genre %s/%s", i + 1, len(self._genres)
             )
-            for _ in range(5):
+            for _ in range(1):
                 query = f"genre:{str(genre)}"
                 results = self._spotify.search(
                     q=query, cat="artist", limit=limit, offset=offset
@@ -229,7 +229,7 @@ class SixDegrees:
             self._albums += albums
         self.scrape_tracks()
         self.filter_tracks()
-        self.create_tracks()
+        # self.create_tracks()
 
     def import_tracks(self: "SixDegrees") -> None:
         """Imports tracks from the id file

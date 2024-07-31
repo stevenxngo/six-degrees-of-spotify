@@ -4,7 +4,7 @@ Note: This project is a work in progress and is not yet complete.
 
 ## Description
 
-This project is an application that enables users to find the shortest path between two artists through collaborations, if possible under 6 degrees. It uses data provided by the [Spotify API](https://developer.spotify.com/documentation/web-api) to retrieve data about artists and their tracks. All data scraped from Spotify is stored in a [Neo4j](https://neo4j.com/) database, which is then used to find the shortest path between two artists. The current implementation supports the top 250 artists of a [popularity](https://developer.spotify.com/documentation/web-api/reference/get-an-artist#:~:text=of%20the%20artist.-,popularity,-integer) over 40 from the following genres: 
+This project is an application that enables users to find the shortest path between two artists through collaborations, if possible under 6 degrees. It uses data provided by the [Spotify API](https://developer.spotify.com/documentation/web-api) to retrieve data about artists and their tracks. All data scraped from Spotify is stored in a [Neo4j](https://neo4j.com/) database, which is then used to find the shortest path between two artists. The current implementation supports the top 50 artists of a [popularity](https://developer.spotify.com/documentation/web-api/reference/get-an-artist#:~:text=of%20the%20artist.-,popularity,-integer) from the following genres: 
 
 * dance
 * dubstep
