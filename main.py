@@ -20,7 +20,7 @@ def main(args: argparse.Namespace) -> None:
             "Are you sure you want to import the database via csv files? Warning: this will override the current database (y/n): "
         )
         if sure.lower() == "y":
-            six_degrees.import_tracks()
+            six_degrees.import_data()
         else:
             print("Database not imported.")
     elif args.debug:
@@ -32,13 +32,9 @@ def main(args: argparse.Namespace) -> None:
         else:
             print("Database not cleared.")
     else:
-        # six_degrees.initialize_artists()
-        # six_degrees.import_tracks()
-        six_degrees.initialize_tracks()
-        # six_degrees.create_relationships()
-        # start = input("Starting artist name: ")
-        # end = input("Ending artist name: ")
-        # six_degrees.find_path(start, end)
+        start = input("Starting artist name: ")
+        end = input("Ending artist name: ")
+        six_degrees.find_path(start, end)
 
 
 if __name__ == "__main__":

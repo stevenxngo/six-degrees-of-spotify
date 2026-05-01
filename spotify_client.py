@@ -16,7 +16,11 @@ class SpotifyClient:
         auth_manager = SpotifyClientCredentials(
             client_id=client_id, client_secret=client_secret
         )
-        self._spotify = spotipy.Spotify(auth_manager=auth_manager)
+        self._spotify = spotipy.Spotify(
+            auth_manager=auth_manager,
+            retries=10,
+            backoff_factor=0.5,
+        )
 
     def get_artist(self: "SpotifyClient", artist_id: str) -> Any:
         """Gets artist information from Spotify API

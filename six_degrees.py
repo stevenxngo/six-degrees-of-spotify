@@ -93,8 +93,8 @@ class SixDegrees:
         """
         clear_db_artists()
         with Neo4jClient() as neo4j_client:
-            for artist in self._artists:
-                neo4j_client.create_artist_node(artist)
+            neo4j_client.setup_constraints()
+            neo4j_client.create_artist_nodes(self._artists)
 
     def initialize_artists(self: "SixDegrees") -> None:
         """Initializes the artists data using Spotify API
@@ -169,27 +169,30 @@ class SixDegrees:
             self (SixDegrees): Instance of SixDegrees
         """
         write_csv_header("data/tracks.csv", TRACK_HEADERS)
+        artist_ids = {a["id"] for a in self._artists}
         collabs = set()
+        seen_track_ids = set()
         filtered_tracks = []
         for i, track in enumerate(self._tracks):
             logger.info("Filtering tracks %s/%s", i + 1, len(self._tracks))
             track_id = track["id"]
+            if track_id in seen_track_ids:
+                continue
             included_artists = [
                 {"name": artist["name"], "id": artist["id"]}
                 for artist in track["artists"]
-                if any(a.get("id") == artist["id"] for a in self._artists)
+                if artist["id"] in artist_ids
             ]
-            if len(included_artists) == 0 or len(included_artists) == 1:
+            if len(included_artists) <= 1:
                 continue
             track_conns = set()
             for i, artist_i in enumerate(included_artists):
                 for artist_j in included_artists[i + 1 :]:
                     conn = tuple(sorted([artist_i["id"], artist_j["id"]]))
                     track_conns.add(conn)
-            if len(track_conns.intersection(collabs)) == 0 and all(
-                track_id != t["id"] for t in filtered_tracks
-            ):
+            if not track_conns.intersection(collabs):
                 collabs.update(track_conns)
+                seen_track_ids.add(track_id)
                 filtered_tracks.append(
                     {
                         "name": track["name"],
@@ -210,8 +213,8 @@ class SixDegrees:
         """
         clear_db_tracks()
         with Neo4jClient() as neo4j_client:
-            for track in self._tracks:
-                neo4j_client.create_track_node(track)
+            neo4j_client.setup_constraints()
+            neo4j_client.create_track_nodes(self._tracks)
 
     def initialize_tracks(self: "SixDegrees") -> None:
         """Initializes the tracks data using Spotify API
@@ -227,9 +230,15 @@ class SixDegrees:
             )
             albums = self.scrape_albums(artist["id"])
             self._albums += albums
+        seen = set()
+        self._albums = [
+            a
+            for a in self._albums
+            if not (a["id"] in seen or seen.add(a["id"]))
+        ]
         self.scrape_tracks()
         self.filter_tracks()
-        # self.create_tracks()
+        self.create_tracks()
 
     def import_tracks(self: "SixDegrees") -> None:
         """Imports tracks from the id file
@@ -239,6 +248,7 @@ class SixDegrees:
         """
         self._tracks = read_track_csv("data/tracks.csv")
         self.create_tracks()
+        self.create_relationships()
 
     def create_relationships(self: "SixDegrees") -> None:
         """Creates relationships between artists and tracks in Neo4j database
@@ -271,25 +281,40 @@ class SixDegrees:
         self.import_tracks()
         self.create_relationships()
 
-    def find_path(self: "SixDegrees", start: str, end: str) -> list:
-        """Finds the shortest path between two artists
+    def find_path(self: "SixDegrees", start: str, end: str) -> None:
+        """Finds and prints the shortest path between two artists
 
         Args:
-            self (SpotifyClient): Instance of SpotifyClient
+            self (SixDegrees): Instance of SixDegrees
             start (str): Starting artist name
             end (str): Ending artist name
-
-        Returns:
-            list: The shortest path between two artists
         """
-        starting_id = self._spotify.search(
+        start_results = self._spotify.search(
             q=start, cat="artist", limit=1, offset=0
-        )["artists"]["items"][0]["id"]
-        ending_id = self._spotify.search(
+        )["artists"]["items"]
+        end_results = self._spotify.search(
             q=end, cat="artist", limit=1, offset=0
-        )["artists"]["items"][0]["id"]
+        )["artists"]["items"]
+        if not start_results:
+            print(f"Artist not found: {start}")
+            return
+        if not end_results:
+            print(f"Artist not found: {end}")
+            return
+        starting_id = start_results[0]["id"]
+        ending_id = end_results[0]["id"]
         with Neo4jClient() as neo4j_manager:
-            return neo4j_manager.shortest_path(starting_id, ending_id)
+            path = neo4j_manager.shortest_path(starting_id, ending_id)
+        if not path:
+            print("No path found between these two artists.")
+            return
+        degrees = sum(1 for node in path if node["type"] == "artist") - 1
+        print(f"\n{degrees} degree(s) of separation:\n")
+        for node in path:
+            if node["type"] == "artist":
+                print(f"  Artist: {node['name']}")
+            else:
+                print(f"    via \"{node['name']}\"")
 
     def clear_db(self: "SixDegrees") -> None:
         """Clears the Neo4j database

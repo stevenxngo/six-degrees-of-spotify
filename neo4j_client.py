@@ -82,54 +82,51 @@ class Neo4jClient:
             self (Neo4jClient): Instance of Neo4jClient
         """
         if self._driver is not None:
-            self._driver.verify_connectivity()
+            try:
+                self._driver.verify_connectivity()
+                print("Neo4j connection successful.")
+            except Exception as e:
+                print(f"Neo4j connection failed: {e}")
 
-    def create_artist_node(self: "Neo4jClient", artist: dict) -> None:
-        """Creates an artist node in the Neo4j database
-
-        Args:
-            self (Neo4jClient): Instance of Neo4jClient
-            artist (dict): The artist information
-        """
+    def setup_constraints(self: "Neo4jClient") -> None:
+        """Creates uniqueness constraints for Artist and Track nodes"""
         if self._driver is not None:
             with self._driver.session() as session:
-                constraint = (
+                session.run(
                     "CREATE CONSTRAINT unique_artist_id IF NOT EXISTS "
-                    "FOR (n: Artist) REQUIRE n.id IS UNIQUE"
+                    "FOR (n:Artist) REQUIRE n.id IS UNIQUE"
                 )
-                session.run(constraint)
-
-                node_query = "MERGE (n:Artist {name: $name, id: $id})"
-
                 session.run(
-                    node_query,
-                    name=artist["name"],
-                    id=artist["id"],
+                    "CREATE CONSTRAINT unique_track_id IF NOT EXISTS "
+                    "FOR (n:Track) REQUIRE n.id IS UNIQUE"
                 )
 
-    def create_track_node(self: "Neo4jClient", track: dict) -> None:
-        """Creates a track node in the Neo4j database
+    def create_artist_nodes(self: "Neo4jClient", artists: list) -> None:
+        """Batch-creates artist nodes in the Neo4j database
 
         Args:
             self (Neo4jClient): Instance of Neo4jClient
-            track (dict): The track information
+            artists (list): List of artist dicts with name and id
         """
         if self._driver is not None:
             with self._driver.session() as session:
-                unique_track_constraint = (
-                    "CREATE CONSTRAINT unique_track_id IF NOT EXISTS "
-                    "FOR (n: Track) REQUIRE n.id IS UNIQUE"
-                )
-                session.run(unique_track_constraint)
-
-                node_query = (
-                    "MERGE (n:Track {name: $name, id: $id, artists: $artists})"
-                )
                 session.run(
-                    node_query,
-                    name=track["name"],
-                    id=track["id"],
-                    artists=track["artists"],
+                    "UNWIND $artists AS a MERGE (n:Artist {id: a.id}) SET n.name = a.name",
+                    artists=artists,
+                )
+
+    def create_track_nodes(self: "Neo4jClient", tracks: list) -> None:
+        """Batch-creates track nodes in the Neo4j database
+
+        Args:
+            self (Neo4jClient): Instance of Neo4jClient
+            tracks (list): List of track dicts with name, id, and artists
+        """
+        if self._driver is not None:
+            with self._driver.session() as session:
+                session.run(
+                    "UNWIND $tracks AS t MERGE (n:Track {id: t.id}) SET n.name = t.name, n.artists = t.artists",
+                    tracks=tracks,
                 )
 
     def create_relationships(self: "Neo4jClient") -> None:
@@ -157,7 +154,7 @@ class Neo4jClient:
             end_id (str): id of the ending artist
 
         Returns:
-            list: The shortest path between the two artists, if any
+            list: Dicts with 'id', 'name', 'type' for each node in the path
         """
         if self._driver is not None:
             with self._driver.session() as session:
@@ -165,19 +162,17 @@ class Neo4jClient:
                     "MATCH (start:Artist {id: $start_id}), (end:Artist {id: $end_id}), "
                     "p = shortestPath((start)-[:APPEARS_ON*]-(end)) "
                     "UNWIND nodes(p) AS node "
-                    "RETURN node.id, node.name"
+                    "RETURN node.id AS id, node.name AS name, "
+                    "CASE WHEN node:Artist THEN 'artist' ELSE 'track' END AS type"
                 )
                 result = session.run(
                     path_query, start_id=start_id, end_id=end_id
                 )
-                path = []
-
-                if result.peek() is None:
-                    print("No path found")
-                    return path
-                print("Path found")
-                for record in result:
-                    node_id = record["node.id"]
-                    path.append(node_id)
-                return path
+                records = list(result)
+                if not records:
+                    return []
+                return [
+                    {"id": r["id"], "name": r["name"], "type": r["type"]}
+                    for r in records
+                ]
         return []
