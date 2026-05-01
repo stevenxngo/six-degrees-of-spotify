@@ -18,6 +18,8 @@ This project is an application that enables users to find the shortest path betw
 * progressive-house
 * r-n-b
 
+![Drake's graph](./assets/drake_graph.png)
+
 ## Pre-requisites
 
 * [Python 3.10](https://www.python.org/downloads/release/python-3100/)

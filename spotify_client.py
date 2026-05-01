@@ -120,3 +120,15 @@ class SpotifyClient:
             dict: Album information
         """
         return self._spotify.albums(albums=albums)
+
+    def tracks(self: "SpotifyClient", track_ids: list) -> Any:
+        """Gets full track information including popularity from Spotify API
+
+        Args:
+            self (SpotifyClient): Instance of SpotifyClient
+            track_ids (list): The track ids (max 50)
+
+        Returns:
+            dict: Track information
+        """
+        return self._spotify.tracks(tracks=track_ids)

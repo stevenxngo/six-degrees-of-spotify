@@ -163,20 +163,20 @@ class SixDegrees:
 
     def filter_tracks(self: "SixDegrees") -> None:
         """Filters tracks based on artist collaborations. Only one
-        collaboration per artist pair is allowed
+        collaboration per artist pair is allowed, preferring the most
+        popular track when multiple options exist.
 
         Args:
             self (SixDegrees): Instance of SixDegrees
         """
         write_csv_header("data/tracks.csv", TRACK_HEADERS)
         artist_ids = {a["id"] for a in self._artists}
-        collabs = set()
-        seen_track_ids = set()
-        filtered_tracks = []
-        for i, track in enumerate(self._tracks):
-            logger.info("Filtering tracks %s/%s", i + 1, len(self._tracks))
+
+        seen_ids = set()
+        candidates = []
+        for track in self._tracks:
             track_id = track["id"]
-            if track_id in seen_track_ids:
+            if track_id in seen_ids:
                 continue
             included_artists = [
                 {"name": artist["name"], "id": artist["id"]}
@@ -185,21 +185,36 @@ class SixDegrees:
             ]
             if len(included_artists) <= 1:
                 continue
+            seen_ids.add(track_id)
+            candidates.append((track, included_artists))
+
+        logger.info("Fetching popularity for %s candidate tracks", len(candidates))
+        popularity = {}
+        for i in range(0, len(candidates), 50):
+            batch_ids = [t["id"] for t, _ in candidates[i : i + 50]]
+            results = self._spotify.tracks(batch_ids)
+            for t in results["tracks"]:
+                if t:
+                    popularity[t["id"]] = t["popularity"]
+
+        candidates.sort(key=lambda x: popularity.get(x[0]["id"], 0), reverse=True)
+
+        collabs = set()
+        filtered_tracks = []
+        for i, (track, included_artists) in enumerate(candidates):
+            logger.info("Filtering tracks %s/%s", i + 1, len(candidates))
             track_conns = set()
-            for i, artist_i in enumerate(included_artists):
-                for artist_j in included_artists[i + 1 :]:
+            for j, artist_i in enumerate(included_artists):
+                for artist_j in included_artists[j + 1 :]:
                     conn = tuple(sorted([artist_i["id"], artist_j["id"]]))
                     track_conns.add(conn)
             if not track_conns.intersection(collabs):
                 collabs.update(track_conns)
-                seen_track_ids.add(track_id)
                 filtered_tracks.append(
                     {
                         "name": track["name"],
-                        "id": track_id,
-                        "artists": [
-                            artist["id"] for artist in included_artists
-                        ],
+                        "id": track["id"],
+                        "artists": [a["id"] for a in included_artists],
                     }
                 )
         self._tracks = filtered_tracks
