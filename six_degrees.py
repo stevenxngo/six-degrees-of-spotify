@@ -3,12 +3,20 @@ from neo4j_client import Neo4jClient, clear_db_artists, clear_db_tracks
 from file_utilities import (
     read_genres,
     read_artist_csv,
+    read_album_csv,
     read_track_csv,
     write_csv_header,
     write_csv,
     clear_file,
 )
+import json
 import logging
+import os
+import time
+from requests.exceptions import ReadTimeout
+
+TRACKS_OFFSET_PATH = "data/tracks_offset.txt"
+TRACKS_RAW_PATH = "data/tracks_raw.jsonl"
 
 logger = logging.getLogger()
 ARTIST_HEADERS = [
@@ -16,6 +24,7 @@ ARTIST_HEADERS = [
     "id",
 ]
 ALBUM_HEADERS = [
+    "name",
     "id",
 ]
 TRACK_HEADERS = [
@@ -79,7 +88,7 @@ class SixDegrees:
             artist_id = artist["id"]
             if (
                 artist_id not in [a["id"] for a in final_artists]
-                and artist["popularity"] >= 40
+                and artist.get("popularity", 100) >= 40
             ):
                 final_artists.append({"name": artist["name"], "id": artist_id})
         self._artists = final_artists
@@ -96,6 +105,32 @@ class SixDegrees:
             neo4j_client.setup_constraints()
             neo4j_client.create_artist_nodes(self._artists)
 
+    def scrape_seed_artists(self: "SixDegrees") -> None:
+        """Resolves artist names from seeds.json via search and adds them
+        to the artist list.
+
+        Args:
+            self (SixDegrees): Instance of SixDegrees
+        """
+        seed_names = read_genres("data/seeds.json")
+        seed_ids = []
+        for i, name in enumerate(seed_names):
+            logger.info(
+                "Resolving seed %s/%s: %s", i + 1, len(seed_names), name
+            )
+            results = self._spotify.search(
+                q=name, cat="artist", limit=1, offset=0
+            )
+            items = results["artists"]["items"]
+            if items:
+                seed_ids.append(items[0]["id"])
+
+        for i in range(0, len(seed_ids), 50):
+            batch = self._spotify.artists(seed_ids[i : i + 50])
+            self._artists.extend(a for a in batch["artists"] if a)
+
+        logger.info("Added %s seed artists", len(seed_ids))
+
     def initialize_artists(self: "SixDegrees") -> None:
         """Initializes the artists data using Spotify API
 
@@ -104,6 +139,20 @@ class SixDegrees:
         """
         clear_file("data/artists.csv")
         self.scrape_artists()
+        self.filter_artists()
+        self.create_artists()
+
+    def initialize_seed_artists(self: "SixDegrees") -> None:
+        """Resolves seeds.json and merges results into the existing
+        artists.csv. Does not redo album or track scraping.
+
+        Args:
+            self (SixDegrees): Instance of SixDegrees
+        """
+        if os.path.exists("data/artists.csv"):
+            self._artists.extend(read_artist_csv("data/artists.csv"))
+        clear_file("data/artists.csv")
+        self.scrape_seed_artists()
         self.filter_artists()
         self.create_artists()
 
@@ -131,12 +180,32 @@ class SixDegrees:
         limit = 50
         while True:
             logger.info("Scraping albums")
-            albums = self._spotify.artist_albums(
-                artist_id=artist_id,
-                album_type="album,single",
-                limit=limit,
-                offset=offset,
-            )
+            for attempt in range(5):
+                try:
+                    albums = self._spotify.artist_albums(
+                        artist_id=artist_id,
+                        album_type="album,single",
+                        limit=limit,
+                        offset=offset,
+                    )
+                    break
+                except ReadTimeout:
+                    if attempt == 4:
+                        raise
+                    wait = 2**attempt
+                    logger.warning(
+                        "Timeout scraping albums, retrying in %ss (%s/5)",
+                        wait,
+                        attempt + 2,
+                    )
+                    time.sleep(wait)
+                except Exception as e:
+                    logger.warning(
+                        "Error scraping albums for %s: %s, skipping",
+                        artist_id,
+                        e,
+                    )
+                    return discography
             discography += albums["items"]
             if albums["next"]:
                 offset += limit
@@ -145,21 +214,71 @@ class SixDegrees:
         return discography
 
     def scrape_tracks(self: "SixDegrees") -> None:
-        """Scrapes tracks for a given list of albums
+        """Scrapes tracks for a given list of albums, with retry and
+        checkpoint support. If a previous run was interrupted, it resumes
+        from the last saved offset.
 
         Args:
             self (SixDegrees): Instance of SixDegrees
         """
-        tracks = []
-        for i in range(0, len(self._albums), 20):
-            logger.info("Scraping tracks %s/%s", i, len(self._albums))
-            album_ids = [album["id"] for album in self._albums[i : i + 20]]
-            tracks += [
-                album["tracks"]["items"]
-                for album in self._spotify.albums(albums=album_ids)["albums"]
-            ]
-        tracks = [track for album in tracks for track in album]
-        self._tracks += tracks
+        start_i = 0
+        if os.path.exists(TRACKS_OFFSET_PATH):
+            with open(TRACKS_OFFSET_PATH) as f:
+                content = f.read().strip()
+            if content:
+                start_i = int(content)
+                if os.path.exists(TRACKS_RAW_PATH):
+                    with open(TRACKS_RAW_PATH, encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line:
+                                self._tracks.append(json.loads(line))
+                logger.info(
+                    "Resuming track scraping from album %s/%s (%s tracks loaded)",
+                    start_i,
+                    len(self._albums),
+                    len(self._tracks),
+                )
+
+        with open(TRACKS_RAW_PATH, "a", encoding="utf-8") as raw_file:
+            for i in range(start_i, len(self._albums), 20):
+                logger.info("Scraping tracks %s/%s", i, len(self._albums))
+                album_ids = [album["id"] for album in self._albums[i : i + 20]]
+                for attempt in range(5):
+                    try:
+                        result = self._spotify.albums(albums=album_ids)[
+                            "albums"
+                        ]
+                        break
+                    except ReadTimeout:
+                        if attempt == 4:
+                            raise
+                        wait = 2**attempt
+                        logger.warning(
+                            "Timeout scraping tracks, retrying in %ss (%s/5)",
+                            wait,
+                            attempt + 2,
+                        )
+                        time.sleep(wait)
+                for album in result:
+                    if album:
+                        for track in album["tracks"]["items"]:
+                            compact = {
+                                "id": track["id"],
+                                "name": track["name"],
+                                "artists": [
+                                    {"id": a["id"], "name": a["name"]}
+                                    for a in track["artists"]
+                                ],
+                            }
+                            self._tracks.append(compact)
+                            raw_file.write(json.dumps(compact) + "\n")
+                with open(TRACKS_OFFSET_PATH, "w") as f:
+                    f.write(str(i + 20))
+
+        for path in [TRACKS_OFFSET_PATH, TRACKS_RAW_PATH]:
+            if os.path.exists(path):
+                os.remove(path)
 
     def filter_tracks(self: "SixDegrees") -> None:
         """Filters tracks based on artist collaborations. Only one
@@ -188,16 +307,25 @@ class SixDegrees:
             seen_ids.add(track_id)
             candidates.append((track, included_artists))
 
-        logger.info("Fetching popularity for %s candidate tracks", len(candidates))
+        logger.info(
+            "Fetching popularity for %s candidate tracks", len(candidates)
+        )
         popularity = {}
         for i in range(0, len(candidates), 50):
             batch_ids = [t["id"] for t, _ in candidates[i : i + 50]]
             results = self._spotify.tracks(batch_ids)
+            logger.info(
+                "Fetched popularity for tracks %s/%s",
+                min(i + 50, len(candidates)),
+                len(candidates),
+            )
             for t in results["tracks"]:
                 if t:
                     popularity[t["id"]] = t["popularity"]
 
-        candidates.sort(key=lambda x: popularity.get(x[0]["id"], 0), reverse=True)
+        candidates.sort(
+            key=lambda x: popularity.get(x[0]["id"], 0), reverse=True
+        )
 
         collabs = set()
         filtered_tracks = []
@@ -231,13 +359,16 @@ class SixDegrees:
             neo4j_client.setup_constraints()
             neo4j_client.create_track_nodes(self._tracks)
 
-    def initialize_tracks(self: "SixDegrees") -> None:
-        """Initializes the tracks data using Spotify API
+    def initialize_albums(self: "SixDegrees") -> None:
+        """Scrapes albums for all artists and saves to albums.csv
 
         Args:
             self (SixDegrees): Instance of SixDegrees
         """
-        clear_file("data/tracks.csv")
+        clear_file("data/albums.csv")
+        for path in [TRACKS_OFFSET_PATH, TRACKS_RAW_PATH]:
+            if os.path.exists(path):
+                os.remove(path)
         self._artists = read_artist_csv("data/artists.csv")
         for i, artist in enumerate(self._artists):
             logger.info(
@@ -250,7 +381,34 @@ class SixDegrees:
             a
             for a in self._albums
             if not (a["id"] in seen or seen.add(a["id"]))
+            and a.get("release_date", "0000")[:4] >= "2000"
         ]
+        write_csv_header("data/albums.csv", ALBUM_HEADERS)
+        write_csv(
+            "data/albums.csv",
+            [{"name": a["name"], "id": a["id"]} for a in self._albums],
+            ALBUM_HEADERS,
+        )
+        logger.info("Saved %s albums to albums.csv", len(self._albums))
+
+    def import_albums(self: "SixDegrees") -> None:
+        """Imports albums from albums.csv
+
+        Args:
+            self (SixDegrees): Instance of SixDegrees
+        """
+        self._albums = read_album_csv("data/albums.csv")
+        self._artists = read_artist_csv("data/artists.csv")
+        logger.info("Loaded %s albums from albums.csv", len(self._albums))
+
+    def initialize_tracks(self: "SixDegrees") -> None:
+        """Scrapes tracks from self._albums and saves to tracks.csv.
+        Call initialize_albums or import_albums first.
+
+        Args:
+            self (SixDegrees): Instance of SixDegrees
+        """
+        clear_file("data/tracks.csv")
         self.scrape_tracks()
         self.filter_tracks()
         self.create_tracks()
@@ -282,6 +440,7 @@ class SixDegrees:
             self (SixDegrees): Instance of SixDegrees
         """
         self.initialize_artists()
+        self.initialize_albums()
         self.initialize_tracks()
         self.create_relationships()
 

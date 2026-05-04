@@ -2,45 +2,21 @@
 
 ## Description
 
-This project is an application that enables users to find the shortest path between two artists through collaborations, if possible under 6 degrees. It uses data provided by the [Spotify API](https://developer.spotify.com/documentation/web-api) to retrieve data about artists and their tracks. All data scraped from Spotify is stored in a [Neo4j](https://neo4j.com/) database, which is then used to find the shortest path between two artists. The current implementation supports the top 50 artists by [popularity](https://developer.spotify.com/documentation/web-api/reference/get-an-artist#:~:text=of%20the%20artist.-,popularity,-integer) from the following genres:
-
-* dance
-* dubstep
-* edm
-* electro
-* electronic
-* hip-hop
-* house
-* indie
-* indie-pop
-* k-pop
-* pop
-* progressive-house
-* r-n-b
+This project finds the shortest path between two artists through collaborations, aiming for under 6 degrees of separation. It uses the [Spotify API](https://developer.spotify.com/documentation/web-api) to scrape artist and track data, stores it in a [Neo4j](https://neo4j.com/) graph database, and runs a shortest-path query to connect any two artists.
 
 ![Drake's graph](./assets/drake_graph.png)
 
 ## Pre-requisites
 
 * [Python 3.10](https://www.python.org/downloads/release/python-3100/)
-* [Neo4j Account](https://neo4j.com/cloud/platform/aura-graph-database/?ref=nav-get-started-cta)
+* [Neo4j Account](https://neo4j.com/cloud/platform/aura-graph-database/)
 * [Spotify Developer Account](https://developer.spotify.com/)
-
-## Database Initialization
-
-There are two ways to initialize the database:
-
-1. Run the `main.py` with the `-i` or `--init` flag to initialize the database using Spotify's API. This is the recommended method if you want the most up-to-date data. **Warning**: This will take a long time to run, as it will need to make a large number of requests to Spotify's API to retrieve the data and will override both the `artists.csv` and `tracks.csv` files, as well as clear the database. 
-
-2. Run the `main.py` with the `-m` or `--imprt` flag to initialize the database using the pre-existing artists and tracks csv file. This will be much faster than the first method, but the data will not be as up-to-date. This is the recommended method if you want to test the application without waiting for all the data to be retrieved. The current csv files are up to date as of 2024-07-31. **Warning**: This will clear the database, in order to re-initialize it with the csv files.
-
-**Warning**: The database will be cleared before initializing the database using either method. The csv files will also be overridden if the first method is used.
 
 ## Installation
 
 1. Clone the repository
-2. Install the required packages using `pip install -r requirements.txt`
-3. Create a `.env` file in the root directory of the project and add the following environment variables:
+2. Install dependencies: `pip install -r requirements.txt`
+3. Create a `.env` file in the root directory with the following variables:
 
 ```
 SPOTIFY_CLIENT_ID=<your_spotify_client_id>
@@ -50,27 +26,56 @@ NEO4J_USERNAME=<your_neo4j_username>
 NEO4J_PASSWORD=<your_neo4j_password>
 ```
 
-4. Run the `main.py` file
-
 ## Usage
 
-1. Run the `main.py` file
-2. Enter the names of the two artists you want to find the shortest path between
-3. The application will then find the shortest path between the two artists and display it to the user
+Run with no flags to find the shortest path between two artists:
 
-If you want to initialize the database with genres other than the ones listed above, you can modify `data/genres.json`. A list of all available genres can be found [here](/data/all_genres.json).
+```
+python main.py
+```
+
+You will be prompted to enter the names of the two artists.
 
 ## Flags
 
-* `-i` or `--init`: Initialize the database using Spotify's API
-* `-m` or `--imprt`: Initialize the database using the pre-existing csv files
-* `-d` or `--debug`: Verify that the connection to the database is successful
-* `-c` or `--clear`: Clear the database. **Warning**: This action is irreversible
+| Flag | Description |
+|------|-------------|
+| `-i` / `--init` | Full initialization from Spotify API — scrapes artists, albums, and tracks from scratch |
+| `-s` / `--seed` | Resolve artists from `seeds.json` and merge into `artists.csv` |
+| `-a` / `--artists` | Import artists from `artists.csv`, then scrape albums and tracks |
+| `-t` / `--tracks` | Resume track scraping from existing `albums.csv` (use if track scraping was interrupted) |
+| `-m` / `--imprt` | Import all data from existing csv files into the database |
+| `-d` / `--debug` | Verify the database connection |
+| `-c` / `--clear` | Clear the database |
 
-## Common Issues
+## Data Initialization
 
-If initializing the database is taking too long using the first method, you may be encountering [Spotify's rate limits](https://developer.spotify.com/documentation/web-api/concepts/rate-limits). The application will automatically retry rate-limited requests with backoff, but a full scrape across all genres can still take a significant amount of time. If it stalls for too long, use the `-m` flag to load from the pre-existing csv files instead.
+There are two sources for artists:
+
+**Genre-based** (`-i`): Searches Spotify for the top artists in each genre listed in `data/genres.json`. Currently configured genres:
+
+```
+dance, dubstep, edm, electro, electronic, hip-hop, house, indie, indie-pop, k-pop, pop, progressive-house, r-n-b
+```
+
+A full list of available Spotify genres is in `data/all_genres.json`. To change which genres are scraped, edit `data/genres.json`.
+
+**Seed-based**: Resolves a curated list of artist names from `data/seeds.json` directly by name, guaranteeing specific artists are included regardless of their genre classification on Spotify. Useful for artists who are popular but not tagged with a genre (e.g. artists on hiatus). To add artists, append their names to `data/seeds.json`.
+
+Only artists with a popularity score ≥ 40 are kept.
+
+## Pipeline
+
+The full data pipeline runs in three stages, each saved to a csv checkpoint:
+
+1. **Artists** → `data/artists.csv`
+2. **Albums** → `data/albums.csv`
+3. **Tracks** → `data/tracks.csv`
+
+The existing csv files in the repository (`data/artists.csv`, `data/albums.csv`, `data/tracks.csv`) are pre-populated with seeded data and can be loaded directly into the database using `python main.py -m`, skipping the Spotify scraping steps entirely.
+
+If the pipeline is interrupted during track scraping, run `python main.py -t` to resume from `albums.csv` without re-scraping albums. Track progress is also checkpointed internally — if interrupted mid-scrape, re-running `-t` continues from the last saved album batch.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.

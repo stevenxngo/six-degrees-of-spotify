@@ -70,6 +70,23 @@ def read_artist_csv(path: str) -> list[dict]:
     return data
 
 
+def read_album_csv(path: str) -> list[dict]:
+    """Reads album data from a CSV file
+
+    Args:
+        path (str): The path to the file
+
+    Returns:
+        list[dict]: The data
+    """
+    data = []
+    with open(path, "r", encoding="utf-8", newline="") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            data.append({"name": row["name"], "id": row["id"]})
+    return data
+
+
 def read_track_csv(path: str) -> list[dict]:
     """Reads track data from a CSV file
 

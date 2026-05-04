@@ -20,6 +20,7 @@ class SpotifyClient:
             auth_manager=auth_manager,
             retries=10,
             backoff_factor=0.5,
+            requests_timeout=30,
         )
 
     def get_artist(self: "SpotifyClient", artist_id: str) -> Any:

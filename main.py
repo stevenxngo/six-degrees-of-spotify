@@ -3,65 +3,83 @@ from logging_config import configure_logger
 import argparse
 
 
+def confirm(prompt: str) -> bool:
+    return input(f"{prompt} (y/n): ").lower() == "y"
+
+
 def main(args: argparse.Namespace) -> None:
     configure_logger()
-    six_degrees = SixDegrees()
-    # six_degrees.verify_conn()
+    sd = SixDegrees()
+
     if args.init:
-        sure = input(
-            "Are you sure you want to initialize the database? Warning: this will override the csv files and database (y/n): "
-        )
-        if sure.lower() == "y":
-            six_degrees.initialize_data()
-        else:
-            print("Database not initialized.")
+        if confirm(
+            "Initialize database? Warning: this will override all csv files and the database"
+        ):
+            sd.initialize_data()
+    elif args.seed:
+        sd.initialize_seed_artists()
+    elif args.artists:
+        sd.import_artists()
+        sd.initialize_albums()
+        sd.initialize_tracks()
+        sd.create_relationships()
+    elif args.tracks:
+        sd.import_albums()
+        sd.initialize_tracks()
+        sd.create_relationships()
     elif args.imprt:
-        sure = input(
-            "Are you sure you want to import the database via csv files? Warning: this will override the current database (y/n): "
-        )
-        if sure.lower() == "y":
-            six_degrees.import_data()
-        else:
-            print("Database not imported.")
+        if confirm(
+            "Import database from csv files? Warning: this will override the current database"
+        ):
+            sd.import_data()
     elif args.debug:
-        six_degrees.verify_conn()
+        sd.verify_conn()
     elif args.clear:
-        sure = input("Are you sure you want to clear the database? (y/n): ")
-        if sure.lower() == "y":
-            six_degrees.clear_db()
-        else:
-            print("Database not cleared.")
+        if confirm("Clear the database?"):
+            sd.clear_db()
     else:
         start = input("Starting artist name: ")
         end = input("Ending artist name: ")
-        six_degrees.find_path(start, end)
+        sd.find_path(start, end)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Six Degrees of Spotify")
     parser.add_argument(
         "-i",
         "--init",
         action="store_true",
-        help="Flag to specify initialization from Spotify API",
+        help="Full initialization from Spotify API (artists + albums + tracks)",
+    )
+    parser.add_argument(
+        "-s",
+        "--seed",
+        action="store_true",
+        help="Resolve artists from seeds.json and merge into artists.csv",
+    )
+    parser.add_argument(
+        "-a",
+        "--artists",
+        action="store_true",
+        help="Import artists from artists.csv, then scrape albums and tracks",
+    )
+    parser.add_argument(
+        "-t",
+        "--tracks",
+        action="store_true",
+        help="Resume track scraping from existing albums.csv",
     )
     parser.add_argument(
         "-m",
         "--imprt",
         action="store_true",
-        help="Flag to specify import from .csv files",
+        help="Import all data from csv files into the database",
     )
     parser.add_argument(
-        "-d",
-        "--debug",
-        action="store_true",
-        help="Flag to specify debug mode",
+        "-d", "--debug", action="store_true", help="Verify database connection"
     )
     parser.add_argument(
-        "-c",
-        "--clear",
-        action="store_true",
-        help="Flag to specify clearing of the database",
+        "-c", "--clear", action="store_true", help="Clear the database"
     )
     args = parser.parse_args()
     main(args)
