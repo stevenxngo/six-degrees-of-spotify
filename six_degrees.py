@@ -15,6 +15,10 @@ import os
 import time
 from requests.exceptions import ReadTimeout
 
+ARTISTS_OFFSET_PATH = "data/artists_offset.txt"
+ARTISTS_RAW_PATH = "data/artists_raw.jsonl"
+ALBUMS_OFFSET_PATH = "data/albums_offset.txt"
+ALBUMS_RAW_PATH = "data/albums_raw.jsonl"
 TRACKS_OFFSET_PATH = "data/tracks_offset.txt"
 TRACKS_RAW_PATH = "data/tracks_raw.jsonl"
 
@@ -82,6 +86,7 @@ class SixDegrees:
         Args:
             self (SixDegrees): Instance of SixDegrees
         """
+        clear_file("data/artists.csv")
         write_csv_header("data/artists.csv", ARTIST_HEADERS)
         final_artists = []
         for artist in self._artists:
@@ -114,20 +119,50 @@ class SixDegrees:
         """
         seed_names = read_genres("data/seeds.json")
         seed_ids = []
-        for i, name in enumerate(seed_names):
-            logger.info(
-                "Resolving seed %s/%s: %s", i + 1, len(seed_names), name
-            )
-            results = self._spotify.search(
-                q=name, cat="artist", limit=1, offset=0
-            )
-            items = results["artists"]["items"]
-            if items:
-                seed_ids.append(items[0]["id"])
+
+        start_i = 0
+        if os.path.exists(ARTISTS_OFFSET_PATH):
+            with open(ARTISTS_OFFSET_PATH) as f:
+                content = f.read().strip()
+            if content:
+                start_i = int(content)
+                if os.path.exists(ARTISTS_RAW_PATH):
+                    with open(ARTISTS_RAW_PATH, encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line:
+                                seed_ids.append(json.loads(line)["id"])
+                logger.info(
+                    "Resuming seed scraping from %s/%s (%s ids loaded)",
+                    start_i,
+                    len(seed_names),
+                    len(seed_ids),
+                )
+
+        with open(ARTISTS_RAW_PATH, "a", encoding="utf-8") as raw_file:
+            for i in range(start_i, len(seed_names)):
+                name = seed_names[i]
+                logger.info(
+                    "Resolving seed %s/%s: %s", i + 1, len(seed_names), name
+                )
+                results = self._spotify.search(
+                    q=name, cat="artist", limit=1, offset=0
+                )
+                items = results["artists"]["items"]
+                if items:
+                    artist_id = items[0]["id"]
+                    seed_ids.append(artist_id)
+                    raw_file.write(json.dumps({"id": artist_id}) + "\n")
+                with open(ARTISTS_OFFSET_PATH, "w") as f:
+                    f.write(str(i + 1))
 
         for i in range(0, len(seed_ids), 50):
             batch = self._spotify.artists(seed_ids[i : i + 50])
             self._artists.extend(a for a in batch["artists"] if a)
+
+        for path in [ARTISTS_OFFSET_PATH, ARTISTS_RAW_PATH]:
+            if os.path.exists(path):
+                os.remove(path)
 
         logger.info("Added %s seed artists", len(seed_ids))
 
@@ -137,7 +172,6 @@ class SixDegrees:
         Args:
             self (SixDegrees): Instance of SixDegrees
         """
-        clear_file("data/artists.csv")
         self.scrape_artists()
         self.filter_artists()
         self.create_artists()
@@ -151,7 +185,6 @@ class SixDegrees:
         """
         if os.path.exists("data/artists.csv"):
             self._artists.extend(read_artist_csv("data/artists.csv"))
-        clear_file("data/artists.csv")
         self.scrape_seed_artists()
         self.filter_artists()
         self.create_artists()
@@ -365,17 +398,50 @@ class SixDegrees:
         Args:
             self (SixDegrees): Instance of SixDegrees
         """
-        clear_file("data/albums.csv")
-        for path in [TRACKS_OFFSET_PATH, TRACKS_RAW_PATH]:
-            if os.path.exists(path):
-                os.remove(path)
         self._artists = read_artist_csv("data/artists.csv")
-        for i, artist in enumerate(self._artists):
-            logger.info(
-                "Scraping albums for artist %s/%s", i + 1, len(self._artists)
-            )
-            albums = self.scrape_albums(artist["id"])
-            self._albums += albums
+
+        start_i = 0
+        if os.path.exists(ALBUMS_OFFSET_PATH):
+            with open(ALBUMS_OFFSET_PATH) as f:
+                content = f.read().strip()
+            if content:
+                start_i = int(content)
+                if os.path.exists(ALBUMS_RAW_PATH):
+                    with open(ALBUMS_RAW_PATH, encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line:
+                                self._albums.append(json.loads(line))
+                logger.info(
+                    "Resuming album scraping from artist %s/%s (%s albums loaded)",
+                    start_i,
+                    len(self._artists),
+                    len(self._albums),
+                )
+        else:
+            clear_file("data/albums.csv")
+            for path in [TRACKS_OFFSET_PATH, TRACKS_RAW_PATH]:
+                if os.path.exists(path):
+                    os.remove(path)
+
+        with open(ALBUMS_RAW_PATH, "a", encoding="utf-8") as raw_file:
+            for i in range(start_i, len(self._artists)):
+                artist = self._artists[i]
+                logger.info(
+                    "Scraping albums for artist %s/%s", i + 1, len(self._artists)
+                )
+                albums = self.scrape_albums(artist["id"])
+                for album in albums:
+                    compact = {
+                        "id": album["id"],
+                        "name": album["name"],
+                        "release_date": album.get("release_date", "0000"),
+                    }
+                    self._albums.append(compact)
+                    raw_file.write(json.dumps(compact) + "\n")
+                with open(ALBUMS_OFFSET_PATH, "w") as f:
+                    f.write(str(i + 1))
+
         seen = set()
         self._albums = [
             a
@@ -389,6 +455,11 @@ class SixDegrees:
             [{"name": a["name"], "id": a["id"]} for a in self._albums],
             ALBUM_HEADERS,
         )
+
+        for path in [ALBUMS_OFFSET_PATH, ALBUMS_RAW_PATH]:
+            if os.path.exists(path):
+                os.remove(path)
+
         logger.info("Saved %s albums to albums.csv", len(self._albums))
 
     def import_albums(self: "SixDegrees") -> None:

@@ -74,7 +74,15 @@ The full data pipeline runs in three stages, each saved to a csv checkpoint:
 
 The existing csv files in the repository (`data/artists.csv`, `data/albums.csv`, `data/tracks.csv`) are pre-populated with seeded data and can be loaded directly into the database using `python main.py -m`, skipping the Spotify scraping steps entirely.
 
-If the pipeline is interrupted during track scraping, run `python main.py -t` to resume from `albums.csv` without re-scraping albums. Track progress is also checkpointed internally — if interrupted mid-scrape, re-running `-t` continues from the last saved album batch.
+All three scraping stages are internally checkpointed — if interrupted, re-running the same command resumes from where it left off:
+
+| Stage | Resume command | Checkpoint files |
+|-------|---------------|-----------------|
+| Seed artists | `python main.py -s` | `artists_offset.txt`, `artists_raw.jsonl` |
+| Albums | `python main.py -a` or `python main.py -i` | `albums_offset.txt`, `albums_raw.jsonl` |
+| Tracks | `python main.py -t` | `tracks_offset.txt`, `tracks_raw.jsonl` |
+
+Checkpoint files are deleted automatically on successful completion. If the pipeline is interrupted between stages (e.g., after albums but before tracks), run `python main.py -t` to resume from `albums.csv` without re-scraping albums.
 
 ## License
 
