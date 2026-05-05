@@ -32,6 +32,8 @@ def main(args: argparse.Namespace) -> None:
             "Import database from csv files? Warning: this will override the current database"
         ):
             sd.import_data()
+    elif args.stats:
+        sd.print_stats()
     elif args.debug:
         sd.verify_conn()
     elif args.clear:
@@ -74,6 +76,9 @@ if __name__ == "__main__":
         "--imprt",
         action="store_true",
         help="Import all data from csv files into the database",
+    )
+    parser.add_argument(
+        "--stats", action="store_true", help="Print database statistics"
     )
     parser.add_argument(
         "-d", "--debug", action="store_true", help="Verify database connection"

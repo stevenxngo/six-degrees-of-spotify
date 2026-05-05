@@ -1,4 +1,5 @@
 import os
+import random
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
 
@@ -176,3 +177,142 @@ class Neo4jClient:
                     for r in records
                 ]
         return []
+
+    def db_stats(self: "Neo4jClient") -> dict:
+        """Returns summary counts for the database
+
+        Returns:
+            dict: artists, tracks, relationships, isolated artist count
+        """
+        if self._driver is None:
+            return {}
+        with self._driver.session() as session:
+            counts = session.run(
+                "MATCH (a:Artist) WITH count(a) AS artists "
+                "MATCH (t:Track) WITH artists, count(t) AS tracks "
+                "MATCH ()-[r:APPEARS_ON]->() "
+                "RETURN artists, tracks, count(r) AS relationships"
+            ).single()
+            isolated = session.run(
+                "MATCH (a:Artist) WHERE NOT (a)-[:APPEARS_ON]->() "
+                "RETURN count(a) AS isolated"
+            ).single()
+        if not counts or not isolated:
+            return {}
+        return {
+            "artists": counts["artists"],
+            "tracks": counts["tracks"],
+            "relationships": counts["relationships"],
+            "isolated": isolated["isolated"],
+        }
+
+    def most_connected_artists(
+        self: "Neo4jClient", limit: int = 10
+    ) -> list[dict]:
+        """Returns artists with the most unique collaborators
+
+        Args:
+            limit (int): Number of results to return
+
+        Returns:
+            list[dict]: name and collaborator count per artist
+        """
+        if self._driver is None:
+            return []
+        with self._driver.session() as session:
+            result = session.run(
+                "MATCH (a:Artist)-[:APPEARS_ON]->(t:Track)<-[:APPEARS_ON]-(b:Artist) "
+                "WHERE a <> b "
+                "RETURN a.name AS name, count(DISTINCT b) AS collaborators "
+                "ORDER BY collaborators DESC LIMIT $limit",
+                limit=limit,
+            )
+            return [
+                {"name": r["name"], "collaborators": r["collaborators"]}
+                for r in result
+            ]
+
+    def most_prolific_artists(
+        self: "Neo4jClient", limit: int = 10
+    ) -> list[dict]:
+        """Returns artists with the most tracks
+
+        Args:
+            limit (int): Number of results to return
+
+        Returns:
+            list[dict]: name and track count per artist
+        """
+        if self._driver is None:
+            return []
+        with self._driver.session() as session:
+            result = session.run(
+                "MATCH (a:Artist)-[:APPEARS_ON]->(t:Track) "
+                "RETURN a.name AS name, count(t) AS tracks "
+                "ORDER BY tracks DESC LIMIT $limit",
+                limit=limit,
+            )
+            return [{"name": r["name"], "tracks": r["tracks"]} for r in result]
+
+    def biggest_collabs(self: "Neo4jClient", limit: int = 10) -> list[dict]:
+        """Returns tracks with the most artists
+
+        Args:
+            limit (int): Number of results to return
+
+        Returns:
+            list[dict]: name and artist count per track
+        """
+        if self._driver is None:
+            return []
+        with self._driver.session() as session:
+            result = session.run(
+                "MATCH (a:Artist)-[:APPEARS_ON]->(t:Track) "
+                "WITH t, count(a) AS artist_count "
+                "WHERE artist_count > 1 "
+                "RETURN t.name AS name, artist_count "
+                "ORDER BY artist_count DESC LIMIT $limit",
+                limit=limit,
+            )
+            return [
+                {"name": r["name"], "artists": r["artist_count"]}
+                for r in result
+            ]
+
+    def all_artist_ids(self: "Neo4jClient") -> list[str]:
+        """Returns all artist IDs in the database"""
+        if self._driver is None:
+            return []
+        with self._driver.session() as session:
+            result = session.run("MATCH (a:Artist) RETURN a.id AS id")
+            return [r["id"] for r in result]
+
+    def longest_path(self: "Neo4jClient", samples: int = 200) -> dict:
+        """Samples random artist pairs to find the approximate longest
+        shortest path (diameter).
+
+        Args:
+            samples (int): Number of random pairs to try
+
+        Returns:
+            dict: start/end artist names and degree count, or None if no paths found
+        """
+        ids = self.all_artist_ids()
+        if len(ids) < 2:
+            return {}
+        best = {}
+        for _ in range(samples):
+            a, b = random.sample(ids, 2)
+            path = self.shortest_path(a, b)
+            if not path:
+                continue
+            degrees = sum(1 for node in path if node["type"] == "artist") - 1
+            candidate = {
+                "start": path[0]["name"],
+                "end": path[-1]["name"],
+                "degrees": degrees,
+                "path": path,
+            }
+            if not best or degrees > best["degrees"]:
+                best = candidate
+        return best

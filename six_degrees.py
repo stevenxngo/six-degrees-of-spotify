@@ -561,6 +561,52 @@ class SixDegrees:
             else:
                 print(f"    via \"{node['name']}\"")
 
+    def print_stats(self: "SixDegrees") -> None:
+        """Prints database statistics to the console
+
+        Args:
+            self (SixDegrees): Instance of SixDegrees
+        """
+        with Neo4jClient() as neo4j_client:
+            stats = neo4j_client.db_stats()
+            connected = neo4j_client.most_connected_artists()
+            prolific = neo4j_client.most_prolific_artists()
+            collabs = neo4j_client.biggest_collabs()
+            print("\nComputing approximate diameter (sampling 200 pairs)...")
+            diameter = neo4j_client.longest_path()
+
+        print("\n=== Database Summary ===")
+        print(f"  Artists:       {stats['artists']}")
+        print(f"  Tracks:        {stats['tracks']}")
+        print(f"  Relationships: {stats['relationships']}")
+        print(f"  Isolated:      {stats['isolated']} (no collaborations)")
+
+        print("\n=== Artists with Most Collaborators ===")
+        for i, a in enumerate(connected, 1):
+            print(f"  {i:2}. {a['name']} — {a['collaborators']} collaborators")
+
+        print("\n=== Artists with Most Collaborations ===")
+        for i, a in enumerate(prolific, 1):
+            print(f"  {i:2}. {a['name']} — {a['tracks']} tracks")
+
+        print("\n=== Tracks with Most Collaborators ===")
+        for i, t in enumerate(collabs, 1):
+            print(f"  {i:2}. \"{t['name']}\" — {t['artists']} artists")
+
+        print("\n=== Approximate Diameter (longest shortest path) ===")
+        if diameter:
+            print(
+                f"  {diameter['degrees']} degree(s): {diameter['start']} → {diameter['end']}"
+            )
+            for node in diameter["path"]:
+                if node["type"] == "artist":
+                    print(f"    Artist: {node['name']}")
+                else:
+                    print(f"      via \"{node['name']}\"")
+        else:
+            print("  No connected pairs found.")
+        print()
+
     def clear_db(self: "SixDegrees") -> None:
         """Clears the Neo4j database
 
