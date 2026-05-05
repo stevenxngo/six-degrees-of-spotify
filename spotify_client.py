@@ -1,6 +1,6 @@
 import os
-from dotenv import load_dotenv
 from typing import Any
+from dotenv import load_dotenv
 from spotipy.oauth2 import SpotifyClientCredentials
 import spotipy
 

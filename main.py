@@ -1,6 +1,6 @@
+import argparse
 from six_degrees import SixDegrees
 from logging_config import configure_logger
-import argparse
 
 
 def confirm(prompt: str) -> bool:
@@ -13,7 +13,8 @@ def main(args: argparse.Namespace) -> None:
 
     if args.init:
         if confirm(
-            "Initialize database? Warning: this will override all csv files and the database"
+            "Initialize database? "
+            "Warning: this will override all csv files and the database"
         ):
             sd.initialize_data()
     elif args.seed:
@@ -29,7 +30,8 @@ def main(args: argparse.Namespace) -> None:
         sd.create_relationships()
     elif args.imprt:
         if confirm(
-            "Import database from csv files? Warning: this will override the current database"
+            "Import database from csv files? "
+            "Warning: this will override the current database"
         ):
             sd.import_data()
     elif args.stats:
@@ -51,7 +53,10 @@ if __name__ == "__main__":
         "-i",
         "--init",
         action="store_true",
-        help="Full initialization from Spotify API (artists + albums + tracks)",
+        help=(
+            "Full initialization from Spotify API"
+            " (artists + albums + tracks)"
+        ),
     )
     parser.add_argument(
         "-s",

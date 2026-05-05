@@ -2,6 +2,7 @@ import os
 import random
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
+from neo4j.exceptions import Neo4jError
 
 load_dotenv()
 
@@ -86,7 +87,7 @@ class Neo4jClient:
             try:
                 self._driver.verify_connectivity()
                 print("Neo4j connection successful.")
-            except Exception as e:
+            except (Neo4jError, OSError) as e:
                 print(f"Neo4j connection failed: {e}")
 
     def setup_constraints(self: "Neo4jClient") -> None:
@@ -112,7 +113,9 @@ class Neo4jClient:
         if self._driver is not None:
             with self._driver.session() as session:
                 session.run(
-                    "UNWIND $artists AS a MERGE (n:Artist {id: a.id}) SET n.name = a.name",
+                    "UNWIND $artists AS a "
+                    "MERGE (n:Artist {id: a.id}) "
+                    "SET n.name = a.name",
                     artists=artists,
                 )
 
@@ -126,7 +129,9 @@ class Neo4jClient:
         if self._driver is not None:
             with self._driver.session() as session:
                 session.run(
-                    "UNWIND $tracks AS t MERGE (n:Track {id: t.id}) SET n.name = t.name, n.artists = t.artists",
+                    "UNWIND $tracks AS t "
+                    "MERGE (n:Track {id: t.id}) "
+                    "SET n.name = t.name, n.artists = t.artists",
                     tracks=tracks,
                 )
 
@@ -160,11 +165,13 @@ class Neo4jClient:
         if self._driver is not None:
             with self._driver.session() as session:
                 path_query = (
-                    "MATCH (start:Artist {id: $start_id}), (end:Artist {id: $end_id}), "
+                    "MATCH (start:Artist {id: $start_id}), "
+                    "(end:Artist {id: $end_id}), "
                     "p = shortestPath((start)-[:APPEARS_ON*]-(end)) "
                     "UNWIND nodes(p) AS node "
                     "RETURN node.id AS id, node.name AS name, "
-                    "CASE WHEN node:Artist THEN 'artist' ELSE 'track' END AS type"
+                    "CASE WHEN node:Artist THEN 'artist' "
+                    "ELSE 'track' END AS type"
                 )
                 result = session.run(
                     path_query, start_id=start_id, end_id=end_id
@@ -221,7 +228,8 @@ class Neo4jClient:
             return []
         with self._driver.session() as session:
             result = session.run(
-                "MATCH (a:Artist)-[:APPEARS_ON]->(t:Track)<-[:APPEARS_ON]-(b:Artist) "
+                "MATCH (a:Artist)-[:APPEARS_ON]->(t:Track)"
+                "<-[:APPEARS_ON]-(b:Artist) "
                 "WHERE a <> b "
                 "RETURN a.name AS name, count(DISTINCT b) AS collaborators "
                 "ORDER BY collaborators DESC LIMIT $limit",
@@ -295,7 +303,7 @@ class Neo4jClient:
             samples (int): Number of random pairs to try
 
         Returns:
-            dict: start/end artist names and degree count, or None if no paths found
+            dict: start/end artist names and degree count, or empty dict
         """
         ids = self.all_artist_ids()
         if len(ids) < 2:

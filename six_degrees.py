@@ -1,3 +1,9 @@
+import json
+import logging
+import os
+import time
+from requests.exceptions import ReadTimeout
+from spotipy.exceptions import SpotifyException
 from spotify_client import SpotifyClient
 from neo4j_client import Neo4jClient, clear_db_artists, clear_db_tracks
 from file_utilities import (
@@ -9,11 +15,6 @@ from file_utilities import (
     write_csv,
     clear_file,
 )
-import json
-import logging
-import os
-import time
-from requests.exceptions import ReadTimeout
 
 ARTISTS_OFFSET_PATH = "data/artists_offset.txt"
 ARTISTS_RAW_PATH = "data/artists_raw.jsonl"
@@ -122,7 +123,7 @@ class SixDegrees:
 
         start_i = 0
         if os.path.exists(ARTISTS_OFFSET_PATH):
-            with open(ARTISTS_OFFSET_PATH) as f:
+            with open(ARTISTS_OFFSET_PATH, encoding="utf-8") as f:
                 content = f.read().strip()
             if content:
                 start_i = int(content)
@@ -153,7 +154,7 @@ class SixDegrees:
                     artist_id = items[0]["id"]
                     seed_ids.append(artist_id)
                     raw_file.write(json.dumps({"id": artist_id}) + "\n")
-                with open(ARTISTS_OFFSET_PATH, "w") as f:
+                with open(ARTISTS_OFFSET_PATH, "w", encoding="utf-8") as f:
                     f.write(str(i + 1))
 
         for i in range(0, len(seed_ids), 50):
@@ -232,7 +233,7 @@ class SixDegrees:
                         attempt + 2,
                     )
                     time.sleep(wait)
-                except Exception as e:
+                except SpotifyException as e:
                     logger.warning(
                         "Error scraping albums for %s: %s, skipping",
                         artist_id,
@@ -256,7 +257,7 @@ class SixDegrees:
         """
         start_i = 0
         if os.path.exists(TRACKS_OFFSET_PATH):
-            with open(TRACKS_OFFSET_PATH) as f:
+            with open(TRACKS_OFFSET_PATH, encoding="utf-8") as f:
                 content = f.read().strip()
             if content:
                 start_i = int(content)
@@ -267,7 +268,8 @@ class SixDegrees:
                             if line:
                                 self._tracks.append(json.loads(line))
                 logger.info(
-                    "Resuming track scraping from album %s/%s (%s tracks loaded)",
+                    "Resuming track scraping from album %s/%s"
+                    " (%s tracks loaded)",
                     start_i,
                     len(self._albums),
                     len(self._tracks),
@@ -306,7 +308,7 @@ class SixDegrees:
                             }
                             self._tracks.append(compact)
                             raw_file.write(json.dumps(compact) + "\n")
-                with open(TRACKS_OFFSET_PATH, "w") as f:
+                with open(TRACKS_OFFSET_PATH, "w", encoding="utf-8") as f:
                     f.write(str(i + 20))
 
         for path in [TRACKS_OFFSET_PATH, TRACKS_RAW_PATH]:
@@ -402,7 +404,7 @@ class SixDegrees:
 
         start_i = 0
         if os.path.exists(ALBUMS_OFFSET_PATH):
-            with open(ALBUMS_OFFSET_PATH) as f:
+            with open(ALBUMS_OFFSET_PATH, encoding="utf-8") as f:
                 content = f.read().strip()
             if content:
                 start_i = int(content)
@@ -413,7 +415,8 @@ class SixDegrees:
                             if line:
                                 self._albums.append(json.loads(line))
                 logger.info(
-                    "Resuming album scraping from artist %s/%s (%s albums loaded)",
+                    "Resuming album scraping from artist %s/%s"
+                    " (%s albums loaded)",
                     start_i,
                     len(self._artists),
                     len(self._albums),
@@ -428,7 +431,9 @@ class SixDegrees:
             for i in range(start_i, len(self._artists)):
                 artist = self._artists[i]
                 logger.info(
-                    "Scraping albums for artist %s/%s", i + 1, len(self._artists)
+                    "Scraping albums for artist %s/%s",
+                    i + 1,
+                    len(self._artists),
                 )
                 albums = self.scrape_albums(artist["id"])
                 for album in albums:
@@ -439,7 +444,7 @@ class SixDegrees:
                     }
                     self._albums.append(compact)
                     raw_file.write(json.dumps(compact) + "\n")
-                with open(ALBUMS_OFFSET_PATH, "w") as f:
+                with open(ALBUMS_OFFSET_PATH, "w", encoding="utf-8") as f:
                     f.write(str(i + 1))
 
         seen = set()
@@ -596,7 +601,8 @@ class SixDegrees:
         print("\n=== Approximate Diameter (longest shortest path) ===")
         if diameter:
             print(
-                f"  {diameter['degrees']} degree(s): {diameter['start']} → {diameter['end']}"
+                f"  {diameter['degrees']} degree(s): "
+                f"{diameter['start']} → {diameter['end']}"
             )
             for node in diameter["path"]:
                 if node["type"] == "artist":
