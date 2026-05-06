@@ -8,7 +8,7 @@ def confirm(prompt: str) -> bool:
 
 
 def main(args: argparse.Namespace) -> None:
-    configure_logger()
+    configure_logger(verbose=args.verbose)
     sd = SixDegrees()
 
     if args.init:
@@ -19,6 +19,8 @@ def main(args: argparse.Namespace) -> None:
             sd.initialize_data()
     elif args.seed:
         sd.initialize_seed_artists()
+    elif args.update:
+        sd.update_data()
     elif args.artists:
         sd.import_artists()
         sd.initialize_albums()
@@ -65,6 +67,15 @@ if __name__ == "__main__":
         help="Resolve artists from seeds.json and merge into artists.csv",
     )
     parser.add_argument(
+        "-u",
+        "--update",
+        action="store_true",
+        help=(
+            "Incrementally scrape albums/tracks for new artists only,"
+            " then update the database"
+        ),
+    )
+    parser.add_argument(
         "-a",
         "--artists",
         action="store_true",
@@ -90,6 +101,12 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-c", "--clear", action="store_true", help="Clear the database"
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging",
     )
     args = parser.parse_args()
     main(args)
