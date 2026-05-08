@@ -92,13 +92,17 @@ class SixDegrees:
         clear_file("data/artists.csv")
         write_csv_header("data/artists.csv", ARTIST_HEADERS)
         final_artists = []
+        seen_ids = set()
         for artist in self._artists:
             artist_id = artist["id"]
+            if artist_id in seen_ids:
+                continue
             if (
-                artist_id not in [a["id"] for a in final_artists]
-                and artist.get("popularity", 100) >= 40
+                artist.get("popularity", 100) >= 40
             ):
                 final_artists.append({"name": artist["name"], "id": artist_id})
+                seen_ids.add(artist_id)
+            
         self._artists = final_artists
         write_csv("data/artists.csv", self._artists, ARTIST_HEADERS)
 
@@ -284,7 +288,9 @@ class SixDegrees:
             self (SixDegrees): Instance of SixDegrees
         """
         start_i = 0
-        if not os.path.exists(TRACKS_OFFSET_PATH) and os.path.exists(TRACKS_RAW_PATH):
+        if not os.path.exists(TRACKS_OFFSET_PATH) and os.path.exists(
+            TRACKS_RAW_PATH
+        ):
             with open(TRACKS_RAW_PATH, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
@@ -386,7 +392,9 @@ class SixDegrees:
             "Fetching popularity for %s candidate tracks", len(candidates)
         )
         popularity = {}
-        for i in tqdm(range(0, len(candidates), 50), desc="Fetching popularity"):
+        for i in tqdm(
+            range(0, len(candidates), 50), desc="Fetching popularity"
+        ):
             batch_ids = [t["id"] for t, _ in candidates[i : i + 50]]
             for attempt in range(5):
                 try:
@@ -412,7 +420,9 @@ class SixDegrees:
 
         collabs = set()
         filtered_tracks = []
-        for track, included_artists in tqdm(candidates, desc="Filtering tracks"):
+        for track, included_artists in tqdm(
+            candidates, desc="Filtering tracks"
+        ):
             track_conns = set()
             for j, artist_i in enumerate(included_artists):
                 for artist_j in included_artists[j + 1 :]:
@@ -689,7 +699,6 @@ class SixDegrees:
         """
         self.import_artists()
         self.import_tracks()
-        self.create_relationships()
 
     def update_data(self: "SixDegrees") -> None:
         """Incrementally updates the database for artists added to artists.csv
@@ -752,7 +761,10 @@ class SixDegrees:
             connected = neo4j_client.most_connected_artists()
             prolific = neo4j_client.most_prolific_artists()
             collabs = neo4j_client.biggest_collabs()
-            print("\nComputing approximate diameter (sampling 200 pairs)...")
+            degree_stats = neo4j_client.avg_degree()
+            print("\nComputing connected components...")
+            components = neo4j_client.connected_components()
+            print("Computing approximate diameter (sampling 200 pairs)...")
             diameter = neo4j_client.longest_path()
 
         print("\n=== Database Summary ===")
@@ -760,6 +772,16 @@ class SixDegrees:
         print(f"  Tracks:        {stats['tracks']}")
         print(f"  Relationships: {stats['relationships']}")
         print(f"  Isolated:      {stats['isolated']} (no collaborations)")
+        if degree_stats:
+            print(f"  Avg degree:    {degree_stats['avg']:.1f} collaborators")
+            print(f"  Max degree:    {degree_stats['max']} collaborators")
+
+        if components:
+            largest_pct = 100 * components["largest"] / stats["artists"] if stats["artists"] else 0
+            print("\n=== Connected Components ===")
+            print(f"  Components:  {components['count']}")
+            print(f"  Largest:     {components['largest']} artists ({largest_pct:.1f}% of total)")
+            print(f"  Singletons:  {components['singletons']}")
 
         print("\n=== Artists with Most Collaborators ===")
         for i, a in enumerate(connected, 1):
@@ -774,7 +796,7 @@ class SixDegrees:
             print(f"  {i:2}. \"{t['name']}\" — {t['artists']} artists")
 
         print("\n=== Approximate Diameter (longest shortest path) ===")
-        if diameter:
+        if "degrees" in diameter:
             print(
                 f"  {diameter['degrees']} degree(s): "
                 f"{diameter['start']} → {diameter['end']}"
@@ -786,6 +808,18 @@ class SixDegrees:
                     print(f"      via \"{node['name']}\"")
         else:
             print("  No connected pairs found.")
+
+        dist = diameter.get("distribution", {})
+        if dist:
+            total = sum(dist.values())
+            print("\n=== Path Length Distribution (200 samples) ===")
+            for key in sorted((k for k in dist if k != "unreachable"), key=lambda x: (isinstance(x, str), x)):
+                pct = 100 * dist[key] / total
+                label = f"{key} degree(s)" if isinstance(key, int) else f"{key} degrees"
+                print(f"  {label:<12} {dist[key]:>4} pairs  ({pct:5.1f}%)")
+            if "unreachable" in dist:
+                pct = 100 * dist["unreachable"] / total
+                print(f"  {'unreachable':<12} {dist['unreachable']:>4} pairs  ({pct:5.1f}%)")
         print()
 
     def clear_db(self: "SixDegrees") -> None:

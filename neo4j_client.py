@@ -144,12 +144,12 @@ class Neo4jClient:
         """
         if self._driver is not None:
             with self._driver.session() as session:
-                relationship_query = (
-                    "MATCH (a: Artist), (t: Track) "
-                    "WHERE a.id IN t.artists "
+                session.run(
+                    "MATCH (t:Track) "
+                    "UNWIND t.artists AS artist_id "
+                    "MATCH (a:Artist {id: artist_id}) "
                     "MERGE (a)-[:APPEARS_ON]->(t)"
                 )
-                session.run(relationship_query)
 
     def shortest_path(self: "Neo4jClient", start_id: str, end_id: str) -> list:
         """Finds the shortest path between two artists, if it exists
@@ -297,24 +297,28 @@ class Neo4jClient:
 
     def longest_path(self: "Neo4jClient", samples: int = 200) -> dict:
         """Samples random artist pairs to find the approximate longest
-        shortest path (diameter).
+        shortest path (diameter) and path length distribution.
 
         Args:
             samples (int): Number of random pairs to try
 
         Returns:
-            dict: start/end artist names and degree count, or empty dict
+            dict: best path info, distribution by degree, or empty dict
         """
         ids = self.all_artist_ids()
         if len(ids) < 2:
             return {}
         best = {}
+        distribution: dict = {}
         for _ in range(samples):
             a, b = random.sample(ids, 2)
             path = self.shortest_path(a, b)
             if not path:
+                distribution["unreachable"] = distribution.get("unreachable", 0) + 1
                 continue
             degrees = sum(1 for node in path if node["type"] == "artist") - 1
+            key = degrees if degrees <= 6 else "6+"
+            distribution[key] = distribution.get(key, 0) + 1
             candidate = {
                 "start": path[0]["name"],
                 "end": path[-1]["name"],
@@ -323,4 +327,70 @@ class Neo4jClient:
             }
             if not best or degrees > best["degrees"]:
                 best = candidate
-        return best
+        return {**best, "distribution": distribution}
+
+    def avg_degree(self: "Neo4jClient") -> dict:
+        """Returns average and max collaborator count across all artists.
+
+        Returns:
+            dict: avg and max degree
+        """
+        if self._driver is None:
+            return {}
+        with self._driver.session() as session:
+            result = session.run(
+                "MATCH (a:Artist) "
+                "OPTIONAL MATCH (a)-[:APPEARS_ON]->()<-[:APPEARS_ON]-(b:Artist) "
+                "WHERE a <> b "
+                "WITH a, count(DISTINCT b) AS deg "
+                "RETURN avg(deg) AS avg_deg, max(deg) AS max_deg"
+            ).single()
+        if not result:
+            return {}
+        return {"avg": result["avg_deg"], "max": result["max_deg"]}
+
+    def connected_components(self: "Neo4jClient") -> dict:
+        """Computes weakly connected components via union-find in Python.
+
+        Returns:
+            dict: component count, largest component size, singleton count
+        """
+        if self._driver is None:
+            return {}
+        with self._driver.session() as session:
+            all_ids = [r["id"] for r in session.run(
+                "MATCH (a:Artist) RETURN a.id AS id"
+            )]
+            edges = [
+                (r["a"], r["b"])
+                for r in session.run(
+                    "MATCH (a:Artist)-[:APPEARS_ON]->(t:Track)<-[:APPEARS_ON]-(b:Artist) "
+                    "WHERE a.id < b.id "
+                    "RETURN DISTINCT a.id AS a, b.id AS b"
+                )
+            ]
+
+        parent = {i: i for i in all_ids}
+
+        def find(x: str) -> str:
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        for a, b in edges:
+            pa, pb = find(a), find(b)
+            if pa != pb:
+                parent[pa] = pb
+
+        sizes: dict = {}
+        for node in all_ids:
+            root = find(node)
+            sizes[root] = sizes.get(root, 0) + 1
+
+        component_sizes = sorted(sizes.values(), reverse=True)
+        return {
+            "count": len(component_sizes),
+            "largest": component_sizes[0] if component_sizes else 0,
+            "singletons": sum(1 for s in component_sizes if s == 1),
+        }

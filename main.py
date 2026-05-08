@@ -30,7 +30,7 @@ def main(args: argparse.Namespace) -> None:
         sd.import_albums()
         sd.initialize_tracks()
         sd.create_relationships()
-    elif args.imprt:
+    elif args.imports:
         if confirm(
             "Import database from csv files? "
             "Warning: this will override the current database"
@@ -89,7 +89,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-m",
-        "--imprt",
+        "--imports",
         action="store_true",
         help="Import all data from csv files into the database",
     )

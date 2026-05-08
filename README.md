@@ -45,7 +45,7 @@ You will be prompted to enter the names of the two artists.
 | `-u` / `--update` | Incrementally scrape albums for artists not yet scraped, re-filter tracks, and update the database |
 | `-a` / `--artists` | Import artists from `artists.csv`, then scrape albums and tracks |
 | `-t` / `--tracks` | Resume track scraping from existing `albums.csv` (use if track scraping was interrupted) |
-| `-m` / `--imprt` | Import all data from existing csv files into the database |
+| `-m` / `--imports` | Import all data from existing csv files into the database |
 | `--stats` | Print database statistics (summary counts, most connected artists, biggest collabs, approximate diameter) |
 | `-d` / `--debug` | Verify the database connection |
 | `-c` / `--clear` | Clear the database |
